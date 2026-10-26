@@ -30,11 +30,12 @@
  const F=createEffects(S);
  function store(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true;}catch{if(!storageError){storageError=true;F.toast('保存できません。設定から記録を書き出してください');}return false;}}
  const save=()=>store(KEY,S);
+ function examSet(x=session){return x?.exam||BK.examFactory.legacy(x?.setId);}
  function validExam(x){
-  const set=BK.EXAMS.find(e=>e.id===x?.setId);if(!set||!Number.isFinite(x.remaining)||x.remaining<0||x.remaining>5400000)return null;
+  const set=x?.exam?BK.examFactory.restore(x.exam):BK.examFactory.legacy(x?.setId);if(!set||!Number.isFinite(x.remaining)||x.remaining<0||x.remaining>5400000)return null;
   const ids=set.sections.flatMap(s=>s.items.map(i=>i.id)),answers={};
   for(const id of ids)if(x.answers&&Object.hasOwn(x.answers,id))answers[id]=sanitizeAnswer(byId[id],x.answers[id]);
-  return {kind:'exam',setId:set.id,scope:set.scope,ids,answers,index:Math.max(0,Math.min(ids.length-1,Math.floor(x.index)||0)),remaining:x.remaining,paused:true,interrupted:true,started:typeof x.started==='string'?x.started:new Date().toISOString(),flags:Array.isArray(x.flags)?x.flags.filter(id=>ids.includes(id)):[],memoIds:Array.isArray(x.memoIds)?x.memoIds.filter(id=>ids.includes(id)):[]};
+  return {kind:'exam',setId:set.id,exam:set.format?set:undefined,scope:set.scope,ids,answers,revealed:Array.isArray(x.revealed)?[...new Set(x.revealed.filter(id=>ids.includes(id)))]:[],index:Math.max(0,Math.min(ids.length-1,Math.floor(x.index)||0)),remaining:x.remaining,paused:true,interrupted:true,started:typeof x.started==='string'?x.started:new Date().toISOString(),flags:Array.isArray(x.flags)?x.flags.filter(id=>ids.includes(id)):[],memoIds:Array.isArray(x.memoIds)?x.memoIds.filter(id=>ids.includes(id)):[]};
  }
  function sanitizeAnswer(q,a){
   if(q.type==='journal')return Object.fromEntries(['dr','cr'].map(side=>[side,(Array.isArray(a?.[side])?a[side]:[]).slice(0,8).filter(r=>Array.isArray(r)).map(r=>[BK.accounts[r[0]]?r[0]:'',String(r[1]??'').slice(0,18)])]));
@@ -61,7 +62,7 @@
  function menu(){
   const L=level(),active=pool(),daily=S.days[day()]||0;
   shell(`<section class="b-hero"><div><p class="b-kicker">LEARN · BALANCE · LEVEL UP</p><h1>今日の一問が、<br><em>明日の自信</em>になる。</h1><p class="b-sub">仕訳を重ねて、決算の景色へ。<br>日商簿記2級の範囲に沿った練習 · 非公式</p></div><div class="b-panel"><div class="b-progress"><div class="b-orb"><small>LEVEL</small>${L.lv}</div><div><p class="b-muted">いまの称号</p><strong>${rank(L.lv)}</strong><div class="b-meter"><i style="width:${L.xp/L.need*100}%"></i></div><p class="b-muted">次のレベルまで ${L.need-L.xp} XP</p></div></div><div class="b-goal"><span>今日の目標 <b>${Math.min(daily,S.set.goal)} / ${S.set.goal}</b> 問</span><span>${streak()} 日継続</span></div></div></section>
-   ${savedExam?`<div class="b-panel b-resume"><div><strong>中断した模試があります</strong><p class="b-muted">${esc(BK.EXAMS.find(e=>e.id===savedExam.setId).name)} · 残り ${time(savedExam.remaining)}</p></div>${button('続きを解く →','resumeExam','b-primary')}</div>`:''}
+   ${savedExam?`<div class="b-panel b-resume"><div><strong>中断した模試があります</strong><p class="b-muted">${esc(examSet(savedExam).name)} · 残り ${time(savedExam.remaining)}</p></div>${button('続きを解く →','resumeExam','b-primary')}</div>`:''}
    <div class="b-sectiontitle"><h2>今日のクエスト</h2><span class="b-muted">${active.length}問 · ${scopeLabel(S.set.scope)}</span></div>
    <div class="b-cards">${[
     ['↔','仕訳ドリル','勘定の動きを、手で覚える。','drill',true],['◈','論点から選ぶ','商業と工業、気になるところから。','genre'],['◷','90分の模試','5大問・100点。本番へのリハーサル。','mocks'],['↻','苦手をほどく',`間違えた ${active.filter(q=>S.q[q.id]?.l===0).length} 問を、次の得点へ。`,'weak'],['✦','一問一答','理論と用語を短いリズムで。','theory'],['⚡','60秒チャレンジ','仕訳の瞬発力を、少しずつ。','ta']
@@ -86,7 +87,7 @@
   session={kind:'practice',mode,scope:S.set.scope,ids:qs.map(q=>q.id),index:0,answers:{},grades:{},combo:0,maxCombo:0,earned:0,correct:0,paused:false,remaining:mode==='ta'?60000:null,started:new Date().toISOString(),questionAt:performance.now(),questionElapsed:0};
   F.SFX.start();screen='quiz';lastTick=performance.now();renderQuiz();
  }
- const modeLabel=()=>session?.kind==='exam'?BK.EXAMS.find(e=>e.id===session.setId).name:({drill:'仕訳ドリル',theory:'一問一答',weak:'苦手克服',ta:'60秒チャレンジ',mixed:'全分野',topic:'論点別'}[session?.mode]||'論点別');
+ const modeLabel=()=>session?.kind==='exam'?examSet().name:({drill:'仕訳ドリル',theory:'一問一答',weak:'苦手克服',ta:'60秒チャレンジ',mixed:'全分野',topic:'論点別'}[session?.mode]||'論点別');
  const qNow=()=>byId[session.ids[session.index]];
  function blank(q){return q.type==='journal'?{dr:[['','']],cr:[['','']]}:q.type==='tf'?null:[];}
  function answerFor(q){if(!Object.hasOwn(session.answers,q.id))session.answers[q.id]=blank(q);return session.answers[q.id];}
@@ -96,12 +97,12 @@
  function renderQuiz(){
   screen='quiz';const q=qNow(),exam=session.kind==='exam',grade=session.grades?.[q.id],node=BK.nodes[q.cat];
   answerFor(q);
-  let nav='';if(exam){const set=BK.EXAMS.find(e=>e.id===session.setId);nav=`<nav class="b-mocknav" aria-label="模試の大問">${set.sections.map((s,i)=>button(`第${i+1}問 <small>${s.points}点</small>`,'section:'+i,s.items.some(it=>it.id===q.id)?'on':'')).join('')}</nav><nav class="b-mocknav" aria-label="模試の小問">${session.ids.map((id,i)=>button(`${i+1}${session.flags.includes(id)?' ⚑':''}`,'jump:'+i,(i===session.index?'on ':'')+(hasAnswer(id)?'done':''))).join('')}</nav>`;}
-  shell(`<div class="b-questionbar"><div><h2>${esc(modeLabel())}</h2><p class="b-muted">${exam?'静かな試験モード · 採点は提出後':'一つずつ、確かな得点へ'}</p></div><div class="b-sessionline"><span>Q ${session.index+1} / ${session.ids.length}</span>${!exam?`<span id="combo-label">${session.combo} COMBO</span>`:''}${session.remaining!==null?`<span class="b-timer" id="timer">${time(session.remaining)}</span>`:''}${button('中断','pause')}</div></div>${nav}
+  let nav='';if(exam){const set=examSet();nav=`<nav class="b-mocknav" aria-label="模試の大問">${set.sections.map((s,i)=>button(`第${i+1}問 <small>${s.points}点</small>`,'section:'+i,s.items.some(it=>it.id===q.id)?'on':'')).join('')}</nav><nav class="b-mocknav" aria-label="模試の小問">${session.ids.map((id,i)=>button(`${i+1}${session.flags.includes(id)?' ⚑':''}`,'jump:'+i,(i===session.index?'on ':'')+(hasAnswer(id)?'done':''))).join('')}</nav>`;}
+  shell(`<div class="b-questionbar"><div><h2>${esc(modeLabel())}</h2><p class="b-muted">${exam?'採点は提出後'+(session.revealed?.length?' · 解答参照あり':''):'一つずつ、確かな得点へ'}${exam&&examSet().code?'<br>再現コード: '+esc(examSet().code):''}</p></div><div class="b-sessionline"><span>Q ${session.index+1} / ${session.ids.length}</span>${!exam?`<span id="combo-label">${session.combo} COMBO</span>`:''}${session.remaining!==null?`<span class="b-timer" id="timer">${time(session.remaining)}</span>`:''}${button('中断','pause')}</div></div>${nav}
    <div class="b-quizlayout"><section class="b-panel b-qpanel muse-avoid"><p class="b-qtag">${esc(node.name)} · ${q.type==='journal'?'仕訳':q.type==='calc'?'数値':q.type==='grid'?'表の穴埋め':q.type==='tf'?'○×':'選択'} · ${'◆'.repeat(q.diff)}</p><h1 class="b-qtitle">${esc(BK.TITLES[q.id])}</h1><p class="b-qtext">${esc(q.q)}</p>
    ${q.sourceTable?table(q.sourceTable):''}${q.instructions?`<ul class="b-instructions">${q.instructions.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}<div class="b-divider"></div><div id="answer-area"></div><div id="feedback-area"></div>
    <div class="b-actions b-answer-controls">${exam?`${button('← 前へ','prev','',session.index===0?'disabled':'')}${button(session.flags.includes(q.id)?'⚑ 見直し済み':'⚑ あとで見直す','flag')}${button(session.index===session.ids.length-1?'提出する':'次へ →',session.index===session.ids.length-1?'submitExam':'nextExam','b-primary')}`:button(grade?'次へ →':'答え合わせ',grade?'next':'grade','b-primary')}</div></section>
-   <aside class="b-memoaside"><div class="b-panel"><h3>計算用紙</h3>${S.set.memo?'<div id="memo-host"></div>':'<p class="b-muted">設定からメモ帳を有効にできます。</p>'}<p class="b-mini-note">紙の中は指で描く。スクロールは紙の外で。<br>移動時に自動保存します。</p><div class="b-actions">${button('▦ 電卓を開く','calculator')}</div></div>${!exam?`<p class="b-muse-lines">${q.p.map(esc).join('<br>')}</p>`:''}</aside></div>`,exam?'b-exam':'');
+   <aside class="b-memoaside"><div class="b-panel"><h3>計算用紙</h3>${S.set.memo?'<div id="memo-host"></div>':'<p class="b-muted">設定からメモ帳を有効にできます。</p>'}<p class="b-mini-note">紙の中は指で描く。スクロールは紙の外で。<br>移動時に自動保存します。</p><div class="b-actions b-study-tools">${button('▦ 電卓を開く','calculator')}${button('解答を見る','revealAnswer')}</div></div>${!exam?`<p class="b-muse-lines">${q.p.map(esc).join('<br>')}</p>`:''}</aside></div>`,exam?'b-exam':'');
   renderAnswer();
   if(S.set.memo){memo=BK.memo.create($('#memo-host'),{question:{...q,e:q.exp},toast:F.toast,onSaved:()=>{if(exam&&session?.kind==='exam'){session.memoIds??=[];if(!session.memoIds.includes(q.id))session.memoIds.push(q.id);persistExam();}}});memo.setAnswered(!!grade);if(exam&&session.memoIds?.includes(q.id))memo.openSaved();}
   if(grade)renderFeedback(grade);else if(!exam)F.Muse.start(q.p,'#8c78b4',{delay:4000});
@@ -122,6 +123,10 @@
   if(q.type==='tf')return q.ans?'○ 正しい':'× 誤り';if(q.type==='choice')return q.ans.map(i=>`${i+1}. ${q.choices[i]}`).join('\n');
   return q.parts.map(p=>p.label+': '+(p.kind==='account'?p.ans:fmt(p.ans))+' '+(p.unit||'')).join('\n');
  }
+ function revealAnswer(){
+  if(!session||session.paused)return;const q=qNow();session.revealed??=[];if(!session.revealed.includes(q.id))session.revealed.push(q.id);persistExam();
+  openModal('解答と解説',`<p class="b-notice">${session.kind==='exam'?'この模試は「解答参照あり」の参考点として記録します。':'解答を見た問題は習得判定・経験値に加算しません。'}${session.remaining!==null?' 時計は進み続けます。':''}</p><p class="b-muted">${esc(BK.TITLES[q.id])}</p><pre class="b-answer-key b-solution">${esc(answerText(q))}</pre><pre class="b-solution">${esc(q.exp)}</pre><p class="b-mini-note"><b>もし忘れたら</b><br>${esc(BK.WHATIF[q.id])}</p><div class="b-actions">${button('問題に戻る','closeModal','b-primary')}</div>`,{dismiss:()=>{if(session&&screen==='quiz')renderQuiz();}});
+ }
  function renderFeedback(g){const q=qNow();$('#feedback-area').innerHTML=`<div class="b-feedback ${g.correct?'':'wrong'}"><h3>${g.correct?'✓ 正解！':'もう一度、流れをたどろう'}</h3><div class="b-checks">${g.checks.map(c=>`<span class="${c.ok?'b-correct':'b-wrong'}">${c.ok?'✓':'×'} ${esc(c.label)}</span>`).join('')}</div><pre class="b-answer-key">${esc(answerText(q))}</pre><pre>${esc(q.exp)}</pre><p class="b-mini-note"><b>もし忘れたら</b><br>${esc(BK.WHATIF[q.id])}</p></div>`;memo?.setAnswered(true);}
  function record(q,g,elapsed,game=true){
   const old=S.q[q.id],r=old||{c:0,w:0,s:0,l:0},revenge=old?.l===0,lv=level().lv;
@@ -137,28 +142,37 @@
   if(!S.goals[day()]&&S.days[day()]>=S.set.goal){S.goals[day()]=true;S.xp+=30;if(game)F.toast('今日の目標達成！ +30 XP');}
   if(game&&level().lv>lv){F.SFX.level();F.banner('LEVEL UP<small>'+rank(level().lv)+'</small>','lv');}
  }
- function grade(){if(session.paused)return;const q=qNow();if(session.grades[q.id])return;const g=E.grade(q,answerFor(q));session.grades[q.id]=g;record(q,g,session.questionElapsed);save();renderAnswer();renderFeedback(g);$('.b-answer-controls').innerHTML=button('次へ →','next','b-primary');$('#combo-label').textContent=session.combo+' COMBO';F.Muse.stop();}
+ function grade(){if(session.paused)return;const q=qNow();if(session.grades[q.id])return;const g=E.grade(q,answerFor(q));session.grades[q.id]=g;if(session.revealed?.includes(q.id)){session.correct+=+g.correct;session.combo=0;F.setFever(false);}else record(q,g,session.questionElapsed);save();renderAnswer();renderFeedback(g);$('.b-answer-controls').innerHTML=button('次へ →','next','b-primary');$('#combo-label').textContent=session.combo+' COMBO';F.Muse.stop();}
  function next(){if(!session.grades[qNow().id])return;if(session.index===session.ids.length-1){finishPractice();return;}session.index++;session.questionElapsed=0;renderQuiz();}
  function finishPractice(){
-  const answered=Object.keys(session.grades),result={kind:'practice',name:modeLabel(),score:session.correct,max:answered.length,combo:session.maxCombo,earned:session.earned,items:answered.map(id=>({id,grade:session.grades[id]})),scope:session.scope,at:new Date().toISOString()};
-  if(session.mode==='ta')S.bestTA=Math.max(S.bestTA,session.correct);S.history.push({name:result.name,score:result.score,max:result.max,at:result.at,scope:result.scope});S.history=S.history.slice(-100);save();session=null;showResult(result);
+  const answered=Object.keys(session.grades),result={kind:'practice',name:modeLabel(),score:session.correct,max:answered.length,combo:session.maxCombo,earned:session.earned,items:answered.map(id=>({id,grade:session.grades[id]})),scope:session.scope,assisted:!!session.revealed?.length,at:new Date().toISOString()};
+  if(session.mode==='ta'&&!result.assisted)S.bestTA=Math.max(S.bestTA,session.correct);S.history.push({name:result.name,score:result.score,max:result.max,at:result.at,scope:result.scope,assisted:result.assisted});S.history=S.history.slice(-100);save();session=null;showResult(result);
  }
  function hasAnswer(id){const a=session.answers[id];if(a===true||a===false)return true;if(Array.isArray(a))return a.some(x=>x!==''&&x!=null);return a&&['dr','cr'].some(s=>a[s]?.some(r=>r[0]||r[1]));}
- function mocks(){shell(`<div class="b-stephead"><p class="b-kicker">MOCK EXAM</p><h1>静かに、本番の90分。</h1><p class="b-sub">商業60点・工業40点。5大問、70点以上で合格判定。</p></div><div class="b-notice">問題と採点は独自です。仕訳は科目＋金額の行ごと、表はセルごとに部分点を与えます。実際の採点方式・難易度と異なる場合があります。中断すると時計が止まり、記録に「中断あり」と残ります。</div>${savedExam?`<div class="b-actions" style="margin-bottom:20px">${button('中断した模試を再開','resumeExam','b-primary')}${button('中断データを破棄','discardExam','b-danger')}</div>`:''}<div class="b-list">${BK.EXAMS.filter(e=>e.scope===S.set.scope).map(e=>button(`<div><strong>${esc(e.name)}</strong><span class="b-muted">${scopeLabel(e.scope)} · 90分 · 5大問</span></div><span>はじめる →</span>`,'exam:'+e.id,'b-row',savedExam?'disabled':'')).join('')}</div><p class="b-mini-note">模試開始後も各大問を自由に移動できます。解説は提出後に表示されます。</p>`);}
- function startExam(id){const set=BK.EXAMS.find(e=>e.id===id);if(!set||savedExam)return;session={kind:'exam',setId:id,scope:set.scope,ids:set.sections.flatMap(s=>s.items.map(i=>i.id)),answers:{},index:0,remaining:set.minutes*60000,paused:false,interrupted:false,started:new Date().toISOString(),flags:[],memoIds:[]};lastTick=performance.now();persistExam();renderQuiz();}
- function resumeExam(){if(!savedExam)return;session=validExam(savedExam);session.paused=false;session.interrupted=true;lastTick=performance.now();renderQuiz();}
+ function mocks(){shell(`<div class="b-stephead"><p class="b-kicker">MOCK EXAM</p><h1>毎回、新しい90分。</h1><p class="b-sub">商業60点・工業40点。5大問、70点以上で合格判定。</p></div><div class="b-notice">検算済みの問題を大問ごとの分野・配点に沿って抽出します。数値は変更しません。問題と部分点は独自のため、本試験の難易度・採点を完全には再現しません。中断時は時計が止まり、「中断あり」と記録します。</div>${savedExam?`<div class="b-actions" style="margin-bottom:20px">${button('中断した模試を再開','resumeExam','b-primary')}${button('中断データを破棄','discardExam','b-danger')}</div>`:''}<div class="b-panel"><h2>ランダム模試</h2><p class="b-sub">${scopeLabel(S.set.scope)} · 90分 · 100点<br>商業仕訳5題は異なる論点から。総合問題は資料と設問をまとめて抽出します。</p><div class="b-actions">${button('ランダム模試をはじめる','exam:random','b-primary',savedExam?'disabled':'')}</div></div><div class="b-panel" style="margin-top:16px"><h2>同じ問題でもう一度</h2><p class="b-sub">模試中・結果・履歴に表示される再現コードを入力すると、同じ範囲・問題・順序・配点で始められます。コードの C は現行、F は2027年度です。</p><label class="b-muted" for="exam-code">再現コード</label><input id="exam-code" class="b-search" placeholder="BQ1-C-1234ABCD" maxlength="14" autocapitalize="characters" spellcheck="false"><p id="exam-code-error" class="b-error" role="status"></p>${button('このコードで始める','replayExam','',savedExam?'disabled':'')}</div><p class="b-mini-note">電卓の隣の「解答を見る」で正解と解説を表示できます。参照した模試は参考点として記録します。</p>`);}
+ function startExam(id='random',code){
+  if(savedExam)return;let set;
+  if(code!==undefined){set=BK.examFactory.fromCode(code);}
+  else if(id==='random'){
+   const previous=getJSON('boki2DopaQuest.lastExamCode',null);let seed=crypto.getRandomValues(new Uint32Array(1))[0];set=BK.examFactory.generate(S.set.scope,seed);
+   if(set.code===previous)set=BK.examFactory.generate(S.set.scope,(seed+1)>>>0);
+  }else set=BK.examFactory.legacy(id);
+  if(!set)return;if(set.code)store('boki2DopaQuest.lastExamCode',set.code);
+  session={kind:'exam',setId:set.id,exam:set.format?set:undefined,scope:set.scope,ids:set.sections.flatMap(s=>s.items.map(i=>i.id)),answers:{},revealed:[],index:0,remaining:set.minutes*60000,paused:false,interrupted:false,started:new Date().toISOString(),flags:[],memoIds:[]};lastTick=performance.now();persistExam();renderQuiz();
+ }
+ function resumeExam(){if(!savedExam)return;session=validExam(savedExam);if(!session){savedExam=null;F.toast('中断データを読み込めませんでした');go('mocks');return;}session.paused=false;session.interrupted=true;lastTick=performance.now();renderQuiz();}
  function jump(i){session.index=Math.max(0,Math.min(session.ids.length-1,i));persistExam();renderQuiz();}
  function finishExam(){
-  closeModal();const set=BK.EXAMS.find(e=>e.id===session.setId),result=E.examScore(set,session.answers);
-  result.kind='exam';result.name=set.name;result.scope=session.scope;result.interrupted=session.interrupted;result.at=new Date().toISOString();result.max=100;result.items=result.sections.flatMap(s=>s.items);result.answers=clone(session.answers);
-  for(const i of result.items)record(byId[i.id],i.grade,Infinity,false);
-  S.history.push({name:result.name,score:result.score,max:100,at:result.at,scope:result.scope,interrupted:result.interrupted});S.history=S.history.slice(-100);save();savedExam=null;session=null;try{localStorage.removeItem(EXAMKEY);}catch{}
+  closeModal();const set=examSet(),result=E.examScore(set,session.answers);
+  result.kind='exam';result.name=set.name;result.scope=session.scope;result.interrupted=session.interrupted;result.at=new Date().toISOString();result.max=100;result.items=result.sections.flatMap(s=>s.items);result.answers=clone(session.answers);result.code=set.code;result.assisted=!!session.revealed?.length;result.revealed=session.revealed||[];
+  for(const i of result.items)if(!result.revealed.includes(i.id))record(byId[i.id],i.grade,Infinity,false);
+  S.history.push({name:result.name,score:result.score,max:100,at:result.at,scope:result.scope,interrupted:result.interrupted,assisted:result.assisted,code:result.code});S.history=S.history.slice(-100);save();savedExam=null;session=null;try{localStorage.removeItem(EXAMKEY);}catch{}
   showResult(result);
  }
  const clone=x=>JSON.parse(JSON.stringify(x));
  function showResult(result){
   screen='result';lastResult=result;const isExam=result.kind==='exam',pct=result.max?result.score/result.max:0;
-  shell(`<section class="b-panel b-result-hero"><p class="b-kicker">QUEST COMPLETE</p><p class="b-score">${fmt(result.score)}<small> / ${result.max}</small></p><h1>${isExam?(result.passed?'合格ラインに到達！':'次の一歩が、見えてきた。'):pct>=.8?'よく積み重ねました。':'この一問も、力になる。'}</h1><p class="b-muted">${esc(result.name)} · ${scopeLabel(result.scope)}${isExam?' · '+(result.interrupted?'中断あり':'中断なし'):''}</p><div class="b-actions" style="justify-content:center">${button('苦手を練習する','weak','b-primary')}${button('ホームへ','home')}${isExam?button('模試を選ぶ','mocks'):button('もう一度仕訳','drill')}</div></section>
+  shell(`<section class="b-panel b-result-hero"><p class="b-kicker">QUEST COMPLETE</p><p class="b-score">${fmt(result.score)}<small> / ${result.max}</small></p><h1>${isExam?(result.assisted?'解答を参照した参考点です':result.passed?'合格ラインに到達！':'次の一歩が、見えてきた。'):pct>=.8?'よく積み重ねました。':'この一問も、力になる。'}</h1><p class="b-muted">${esc(result.name)} · ${scopeLabel(result.scope)}${isExam?' · '+(result.interrupted?'中断あり':'中断なし'):''}${result.assisted?' · 解答参照あり':''}${result.code?'<br>再現コード: <span class="b-code">'+esc(result.code)+'</span>':''}</p><div class="b-actions" style="justify-content:center">${button('苦手を練習する','weak','b-primary')}${button('ホームへ','home')}${isExam?button('模試を選ぶ','mocks'):button('もう一度仕訳','drill')}</div></section>
    ${!isExam?`<div class="b-summary"><div class="b-panel b-stat"><strong>${result.combo}</strong><span class="b-muted">最高コンボ</span></div><div class="b-panel b-stat"><strong>+${result.earned}</strong><span class="b-muted">獲得XP</span></div><div class="b-panel b-stat"><strong>${Math.round(pct*100)}%</strong><span class="b-muted">正答率</span></div></div>`:`<div class="b-sectiontitle"><h2>大問ごとの結果</h2></div><div class="b-list">${result.sections.map(s=>`<div class="b-panel b-row"><strong>${esc(s.name)}</strong><span>${fmt(s.score)} / ${s.points}</span></div>`).join('')}</div><div class="b-sectiontitle"><h2>論点ごとの結果</h2></div><div class="b-list">${Object.entries(result.topics).map(([cat,t])=>button(`<span>${esc(BK.nodes[cat].name)}</span><span>${fmt(t.score)} / ${t.max} →</span>`,'practice:'+cat,'b-row')).join('')}</div>`}
    <div class="b-sectiontitle"><h2>解答と解説</h2><span class="b-muted">タップして振り返る</span></div>${result.items.map(i=>{const q=byId[i.id];return `<details class="b-panel b-review"><summary><span class="${i.grade.correct?'b-correct':'b-wrong'}">${i.grade.correct?'✓':'△'}</span> ${esc(BK.TITLES[i.id])}${i.points?' · '+fmt(i.score)+' / '+i.points+'点':''}</summary><p>${esc(q.q)}</p><p><b>正解</b><br>${esc(answerText(q))}</p><p>${esc(q.exp)}</p><p><b>もし忘れたら</b><br>${esc(BK.WHATIF[i.id])}</p></details>`;}).join('')}`);
   if(S.set.fx)F.confetti(90);F.SFX.rank();
@@ -167,7 +181,7 @@
  function resumeClock(){if(!session)return;session.paused=false;lastTick=performance.now();if(screen==='quiz'&&session.kind!=='exam'&&!session.grades[qNow().id])F.Muse.start(qNow().p,'#8c78b4');}
  function stats(){
   const active=pool(),mastered=active.filter(q=>S.q[q.id]?.s>=2).length;
-  shell(`<div class="b-stephead"><p class="b-kicker">YOUR JOURNEY</p><h1>積み重ねた記録</h1></div><div class="b-summary"><div class="b-panel b-stat"><strong>${S.total}</strong><span class="b-muted">解いた問題</span></div><div class="b-panel b-stat"><strong>${S.total?Math.round(S.correct/S.total*100):0}%</strong><span class="b-muted">累計正答率</span></div><div class="b-panel b-stat"><strong>${mastered}</strong><span class="b-muted">習得した問題</span></div></div><p class="b-notice">習得は2回連続正解。最高コンボ ${S.bestCombo} · 60秒の最高記録 ${S.bestTA}問 · ${streak()}日継続</p><div class="b-sectiontitle"><h2>分野ごとの習得度</h2></div><div class="b-list">${BK.CATS.flatMap(n=>n.kids).map(n=>{const st=nodeStats(n.path);return button(`<div style="flex:1"><strong>${esc(n.name)}</strong><div class="b-chartbar"><i style="width:${st.pct*100}%"></i></div></div><span class="b-muted">${st.master} / ${st.n}</span>`,'practice:'+n.path,'b-row');}).join('')}</div><div class="b-sectiontitle"><h2>最近のクエスト</h2></div><div class="b-list">${S.history.slice(-20).reverse().map(h=>`<div class="b-panel b-row"><div><strong>${esc(h.name)}</strong><span class="b-muted">${esc(h.at.slice(0,10))} · ${scopeLabel(h.scope)}${h.interrupted?' · 中断あり':''}</span></div><span>${fmt(h.score)} / ${h.max}</span></div>`).join('')||'<p class="b-empty">最初のクエストを終えると、ここに記録が残ります。</p>'}</div>`);
+  shell(`<div class="b-stephead"><p class="b-kicker">YOUR JOURNEY</p><h1>積み重ねた記録</h1></div><div class="b-summary"><div class="b-panel b-stat"><strong>${S.total}</strong><span class="b-muted">解いた問題</span></div><div class="b-panel b-stat"><strong>${S.total?Math.round(S.correct/S.total*100):0}%</strong><span class="b-muted">累計正答率</span></div><div class="b-panel b-stat"><strong>${mastered}</strong><span class="b-muted">習得した問題</span></div></div><p class="b-notice">習得は2回連続正解。最高コンボ ${S.bestCombo} · 60秒の最高記録 ${S.bestTA}問 · ${streak()}日継続</p><div class="b-sectiontitle"><h2>分野ごとの習得度</h2></div><div class="b-list">${BK.CATS.flatMap(n=>n.kids).map(n=>{const st=nodeStats(n.path);return button(`<div style="flex:1"><strong>${esc(n.name)}</strong><div class="b-chartbar"><i style="width:${st.pct*100}%"></i></div></div><span class="b-muted">${st.master} / ${st.n}</span>`,'practice:'+n.path,'b-row');}).join('')}</div><div class="b-sectiontitle"><h2>最近のクエスト</h2></div><div class="b-list">${S.history.slice(-20).reverse().map(h=>`<div class="b-panel b-row"><div><strong>${esc(h.name)}</strong><span class="b-muted">${esc(h.at.slice(0,10))} · ${scopeLabel(h.scope)}${h.interrupted?' · 中断あり':''}${h.assisted?' · 解答参照あり':''}${h.code?'<br>再現コード: <span class="b-code">'+esc(h.code)+'</span>':''}</span></div><span>${fmt(h.score)} / ${h.max}</span></div>`).join('')||'<p class="b-empty">最初のクエストを終えると、ここに記録が残ります。</p>'}</div>`);
  }
  function gallery(){const records=BK.memo.store.list();shell(`<div class="b-stephead"><p class="b-kicker">MEMO GALLERY</p><h1>考えた跡の展示室</h1><p class="b-sub">${records.length}枚 · 約${fmt(Math.round(BK.memo.store.bytes()/1024))} KB</p></div><div class="b-gallery">${records.map((r,i)=>`<article class="b-panel"><canvas data-memo-index="${i}"></canvas><h3>${esc(BK.TITLES[r.id]||r.id)}</h3><div class="b-actions">${button('PNG保存','memoExport:'+r.id)}${button('削除','memoDelete:'+r.id,'b-danger')}</div></article>`).join('')||'<p class="b-empty">計算用紙に描いたメモが、ここに集まります。</p>'}</div>`);$$('[data-memo-index]').forEach(c=>BK.memo.renderRecord(c,records[+c.dataset.memoIndex],640,360,1));}
  function settings(){
@@ -212,7 +226,8 @@
    for(const s of r.s)if(!s||!Array.isArray(s.p)||s.p.length>100000||s.p.length%2||!s.p.every(n=>Number.isFinite(n)&&Math.abs(n)<1e7)||['w','o','m'].some(key=>s[key]!=null&&!Number.isFinite(s[key])))throw Error('メモの座標・道具が不正です');
    memos.items[id]={...r,id,q:byId[id].q,e:byId[id].exp,cat:byId[id].cat};
   }
-  return {state,memos,exam:raw.exam?validExam(raw.exam):null,memoTools:raw.memoTools&&typeof raw.memoTools==='object'?raw.memoTools:{}};
+  const importedExam=raw.exam?validExam(raw.exam):null;if(raw.exam&&!importedExam)throw Error('中断模試の問題構成が不正です');
+  return {state,memos,exam:importedExam,memoTools:raw.memoTools&&typeof raw.memoTools==='object'?raw.memoTools:{}};
  }
  async function doImport(){
   const data=modal.importData,keys=[KEY,'boki2DopaQuest.memos.v1',EXAMKEY,'boki2DopaQuest.memoTools.v1'],values=[data.state,data.memos,data.exam,data.memoTools],before=[];
@@ -237,14 +252,15 @@
   if(act==='categoryPractice'){startPractice('topic',category);return;}
   if(act==='practice'){startPractice('topic',arg);return;}
   if(['drill','theory','weak','ta','mixed'].includes(act)){startPractice(act);return;}
-  if(act==='help'){help();return;}if(act==='calculator'){calculator();return;}
+  if(act==='help'){help();return;}if(act==='calculator'){calculator();return;}if(act==='revealAnswer'){revealAnswer();return;}
   if(act==='grade'){grade();return;}if(act==='next'){next();return;}
   if(act==='pause'){pause();return;}
+  if(act==='replayExam'){try{startExam('random',$('#exam-code').value);}catch(e){$('#exam-code-error').textContent=e.message;}return;}
   if(act==='exam'){startExam(arg);return;}if(act==='resumeExam'){resumeExam();return;}
   if(act==='discardExam'){openModal('中断データを破棄',`<p class="b-sub">中断した模試の解答を削除します。学習記録は残ります。</p><div class="b-actions">${button('破棄する','confirmDiscard','b-danger')}</div>`);return;}
   if(act==='confirmDiscard'){savedExam=null;try{localStorage.removeItem(EXAMKEY);}catch{}go('mocks');return;}
   if(act==='prev'){jump(session.index-1);return;}if(act==='nextExam'){jump(session.index+1);return;}if(act==='jump'){jump(+arg);return;}
-  if(act==='section'){const set=BK.EXAMS.find(e=>e.id===session.setId);jump(session.ids.indexOf(set.sections[+arg].items[0].id));return;}
+  if(act==='section'){const set=examSet();jump(session.ids.indexOf(set.sections[+arg].items[0].id));return;}
   if(act==='flag'){const id=qNow().id;session.flags=session.flags.includes(id)?session.flags.filter(x=>x!==id):[...session.flags,id];persistExam();renderQuiz();return;}
   if(act==='submitExam'){const empty=session.ids.filter(id=>!hasAnswer(id)).length;openModal('模試を提出する',`<p class="b-sub">未入力の小問: ${empty}個<br>見直しマーク: ${session.flags.length}個<br>提出すると解答を確定し、採点します。</p><div class="b-actions">${button('提出して採点','confirmExam','b-primary')}${button('解答に戻る','closeModal')}</div>`);return;}
   if(act==='confirmExam'){finishExam();return;}
