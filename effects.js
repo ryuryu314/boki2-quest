@@ -2,13 +2,13 @@ window.createEffects = function(S) { const $ = s => document.querySelector(s), a
 /* ================= audio ================= */
 let ac = null, master = null;
 try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.connect(ac.destination); } catch (e) { ac = null; }
-const setVol = () => { if (master) master.gain.value = (S.set.vol / 100) * 0.6; };
+const setVol = () => { if (master) master.gain.value = (S.set.vol / 100) * 0.6; if (ac) soundHint(); };
 setVol();
-function audioUnlock() { if (ac && ac.state !== 'running') ac.resume().catch(() => {}); }
-function soundHint() { $('#sound-hint').classList.toggle('show', !!ac && ac.state !== 'running'); }
+function audioUnlock() { if (ac && ac.state !== 'running') return ac.resume().catch(() => {}); }
+function soundHint() { $('#sound-hint').classList.toggle('show', !!ac && S.set.vol > 0 && ac.state !== 'running'); }
 if (ac) { ac.onstatechange = soundHint; setTimeout(soundHint, 1500); }
 function tone(f, dur, type = 'square', vol = 0.2, when = 0, slide = 0) {
-  if (!ac || ac.state !== 'running') return;
+  if (!ac || ac.state !== 'running' || S.set.vol <= 0) return;
   const t = ac.currentTime + when, o = ac.createOscillator(), g = ac.createGain();
   o.type = type; o.frequency.setValueAtTime(f, t);
   if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + dur);
@@ -35,6 +35,12 @@ const SFX = {
   rank() { tone(80, 0.5, 'sawtooth', 0.15, 0, 0.4); tone(160, 0.3, 'square', 0.1); },
   tick() { tone(1800, 0.02, 'square', 0.04); },
 };
+// iOS等では最初の操作で再生が許可されるまで非同期に待つ。
+function play(name) {
+  if (!SFX[name] || !ac || S.set.vol <= 0) return;
+  if (ac.state === 'running') SFX[name]();
+  else { const pending=audioUnlock(); if (pending) pending.then(()=>{if(ac?.state==='running')SFX[name]();}); }
+}
 
 /* ================= rumble ================= */
 function rumble(strong, weak, ms) {
@@ -153,4 +159,4 @@ const Muse = {
 Muse.setLevel();
 
 
-return {SFX, audioUnlock, burst, confetti, banner, pop, toast, setFever, drawFx, Muse, setVol, applyFx}; };
+return {SFX, play, audioUnlock, burst, confetti, banner, pop, toast, setFever, drawFx, Muse, setVol, applyFx}; };

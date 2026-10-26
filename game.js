@@ -82,10 +82,10 @@
  function balanced(list,n){const sh=list.filter(q=>q.cat.startsWith('shoji/')),ko=list.filter(q=>q.cat.startsWith('kogyo/'));let selected=[...pick(sh,Math.round(n*.6)),...pick(ko,n-Math.round(n*.6))];if(selected.length<n)selected=selected.concat(pick(list.filter(q=>!selected.includes(q)),n-selected.length));return shuffle(selected);}
  function startPractice(mode,path=''){
   let list=pool();if(mode==='drill'||mode==='ta')list=list.filter(q=>q.type==='journal');if(mode==='theory')list=list.filter(q=>['tf','choice'].includes(q.type));if(mode==='weak')list=list.filter(q=>S.q[q.id]?.l===0);if(path)list=list.filter(q=>q.cat===path||q.cat.startsWith(path+'/'));
-  if(!list.length){F.toast(mode==='weak'?'苦手問題はまだありません。まず練習を始めましょう':'この範囲に問題はありません');return;}
+  if(!list.length){F.play('bump');F.toast(mode==='weak'?'苦手問題はまだありません。まず練習を始めましょう':'この範囲に問題はありません');return;}
   const qs=balanced(list,mode==='ta'?list.length:S.set.count);
   session={kind:'practice',mode,scope:S.set.scope,ids:qs.map(q=>q.id),index:0,answers:{},grades:{},combo:0,maxCombo:0,earned:0,correct:0,paused:false,remaining:mode==='ta'?60000:null,started:new Date().toISOString(),questionAt:performance.now(),questionElapsed:0};
-  F.SFX.start();screen='quiz';lastTick=performance.now();renderQuiz();
+  F.play('start');lastTick=performance.now();renderQuiz();
  }
  const modeLabel=()=>session?.kind==='exam'?examSet().name:({drill:'仕訳ドリル',theory:'一問一答',weak:'苦手克服',ta:'60秒チャレンジ',mixed:'全分野',topic:'論点別'}[session?.mode]||'論点別');
  const qNow=()=>byId[session.ids[session.index]];
@@ -95,10 +95,11 @@
  function updateAnswer(){if(session?.kind==='exam')persistExam();}
  const time=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;};
  function renderQuiz(){
+  const scroll=screen==='quiz'?$('.b-shell')?.scrollTop:0;
   screen='quiz';const q=qNow(),exam=session.kind==='exam',grade=session.grades?.[q.id],node=BK.nodes[q.cat];
   answerFor(q);
   let nav='';if(exam){const set=examSet();nav=`<nav class="b-mocknav" aria-label="模試の大問">${set.sections.map((s,i)=>button(`第${i+1}問 <small>${s.points}点</small>`,'section:'+i,s.items.some(it=>it.id===q.id)?'on':'')).join('')}</nav><nav class="b-mocknav" aria-label="模試の小問">${session.ids.map((id,i)=>button(`${i+1}${session.flags.includes(id)?' ⚑':''}`,'jump:'+i,(i===session.index?'on ':'')+(hasAnswer(id)?'done':''))).join('')}</nav>`;}
-  shell(`<div class="b-questionbar"><div><h2>${esc(modeLabel())}</h2><p class="b-muted">${exam?'採点は提出後'+(session.revealed?.length?' · 解答参照あり':''):'一つずつ、確かな得点へ'}${exam&&examSet().code?'<br>再現コード: '+esc(examSet().code):''}</p></div><div class="b-sessionline"><span>Q ${session.index+1} / ${session.ids.length}</span>${!exam?`<span id="combo-label">${session.combo} COMBO</span>`:''}${session.remaining!==null?`<span class="b-timer" id="timer">${time(session.remaining)}</span>`:''}${button('中断','pause')}</div></div>${nav}
+  shell(`<div class="b-questionbar"><div><h2>${esc(modeLabel())}</h2><p class="b-muted" id="quiz-status">${exam?'採点は提出後'+(session.revealed?.length?' · 解答参照あり':''):'一つずつ、確かな得点へ'}${exam&&examSet().code?'<br>再現コード: '+esc(examSet().code):''}</p></div><div class="b-sessionline"><span>Q ${session.index+1} / ${session.ids.length}</span>${!exam?`<span id="combo-label">${session.combo} COMBO</span>`:''}${session.remaining!==null?`<span class="b-timer" id="timer">${time(session.remaining)}</span>`:''}${button('中断','pause')}</div></div>${nav}
    <div class="b-quizlayout"><section class="b-panel b-qpanel muse-avoid"><p class="b-qtag">${esc(node.name)} · ${q.type==='journal'?'仕訳':q.type==='calc'?'数値':q.type==='grid'?'表の穴埋め':q.type==='tf'?'○×':'選択'} · ${'◆'.repeat(q.diff)}</p><h1 class="b-qtitle">${esc(BK.TITLES[q.id])}</h1><p class="b-qtext">${esc(q.q)}</p>
    ${q.sourceTable?table(q.sourceTable):''}${q.instructions?`<ul class="b-instructions">${q.instructions.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}<div class="b-divider"></div><div id="answer-area"></div><div id="feedback-area"></div>
    <div class="b-actions b-answer-controls">${exam?`${button('← 前へ','prev','',session.index===0?'disabled':'')}${button(session.flags.includes(q.id)?'⚑ 見直し済み':'⚑ あとで見直す','flag')}${button(session.index===session.ids.length-1?'提出する':'次へ →',session.index===session.ids.length-1?'submitExam':'nextExam','b-primary')}`:button(grade?'次へ →':'答え合わせ',grade?'next':'grade','b-primary')}</div></section>
@@ -106,6 +107,8 @@
   renderAnswer();
   if(S.set.memo){memo=BK.memo.create($('#memo-host'),{question:{...q,e:q.exp},toast:F.toast,onSaved:()=>{if(exam&&session?.kind==='exam'){session.memoIds??=[];if(!session.memoIds.includes(q.id))session.memoIds.push(q.id);persistExam();}}});memo.setAnswered(!!grade);if(exam&&session.memoIds?.includes(q.id))memo.openSaved();}
   if(grade)renderFeedback(grade);else if(!exam)F.Muse.start(q.p,'#8c78b4',{delay:4000});
+  // 問題ごとの高さが変わる場合は、ブラウザが新しい末尾に収まる位置まで丸める。
+  if(scroll)$('.b-shell').scrollTop=scroll;
  }
  function table(t){return `<div class="b-scrolltable"><table class="b-table"><thead><tr>${t.headers.map(x=>`<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>${t.rows.map(r=>`<tr>${r.map(x=>`<td>${esc(typeof x==='number'?fmt(x):x)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;}
  function amount(value,key,label,disabled=false){return `<input class="b-amount" readonly inputmode="none" aria-label="${esc(label)}" data-number="${key}" value="${esc(value===''||value==null?'':E.number(value)===null?value:fmt(E.number(value)))}" placeholder="タップして入力" ${disabled?'disabled':''}>`;}
@@ -125,7 +128,8 @@
  }
  function revealAnswer(){
   if(!session||session.paused)return;const q=qNow();session.revealed??=[];if(!session.revealed.includes(q.id))session.revealed.push(q.id);persistExam();
-  openModal('解答と解説',`<p class="b-notice">${session.kind==='exam'?'この模試は「解答参照あり」の参考点として記録します。':'解答を見た問題は習得判定・経験値に加算しません。'}${session.remaining!==null?' 時計は進み続けます。':''}</p><p class="b-muted">${esc(BK.TITLES[q.id])}</p><pre class="b-answer-key b-solution">${esc(answerText(q))}</pre><pre class="b-solution">${esc(q.exp)}</pre><p class="b-mini-note"><b>もし忘れたら</b><br>${esc(BK.WHATIF[q.id])}</p><div class="b-actions">${button('問題に戻る','closeModal','b-primary')}</div>`,{dismiss:()=>{if(session&&screen==='quiz')renderQuiz();}});
+  if(session.kind==='exam')$('#quiz-status').innerHTML=`採点は提出後 · 解答参照あり${examSet().code?'<br>再現コード: '+esc(examSet().code):''}`;
+  openModal('解答と解説',`<p class="b-notice">${session.kind==='exam'?'この模試は「解答参照あり」の参考点として記録します。':'解答を見た問題は習得判定・経験値に加算しません。'}${session.remaining!==null?' 時計は進み続けます。':''}</p><p class="b-muted">${esc(BK.TITLES[q.id])}</p><pre class="b-answer-key b-solution">${esc(answerText(q))}</pre><pre class="b-solution">${esc(q.exp)}</pre><p class="b-mini-note"><b>もし忘れたら</b><br>${esc(BK.WHATIF[q.id])}</p><div class="b-actions">${button('問題に戻る','closeModal','b-primary')}</div>`);
  }
  function renderFeedback(g){const q=qNow();$('#feedback-area').innerHTML=`<div class="b-feedback ${g.correct?'':'wrong'}"><h3>${g.correct?'✓ 正解！':'もう一度、流れをたどろう'}</h3><div class="b-checks">${g.checks.map(c=>`<span class="${c.ok?'b-correct':'b-wrong'}">${c.ok?'✓':'×'} ${esc(c.label)}</span>`).join('')}</div><pre class="b-answer-key">${esc(answerText(q))}</pre><pre>${esc(q.exp)}</pre><p class="b-mini-note"><b>もし忘れたら</b><br>${esc(BK.WHATIF[q.id])}</p></div>`;memo?.setAnswered(true);}
  function record(q,g,elapsed,game=true){
@@ -142,7 +146,7 @@
   if(!S.goals[day()]&&S.days[day()]>=S.set.goal){S.goals[day()]=true;S.xp+=30;if(game)F.toast('今日の目標達成！ +30 XP');}
   if(game&&level().lv>lv){F.SFX.level();F.banner('LEVEL UP<small>'+rank(level().lv)+'</small>','lv');}
  }
- function grade(){if(session.paused)return;const q=qNow();if(session.grades[q.id])return;const g=E.grade(q,answerFor(q));session.grades[q.id]=g;if(session.revealed?.includes(q.id)){session.correct+=+g.correct;session.combo=0;F.setFever(false);}else record(q,g,session.questionElapsed);save();renderAnswer();renderFeedback(g);$('.b-answer-controls').innerHTML=button('次へ →','next','b-primary');$('#combo-label').textContent=session.combo+' COMBO';F.Muse.stop();}
+ function grade(){if(session.paused)return;const q=qNow();if(session.grades[q.id])return;const g=E.grade(q,answerFor(q));session.grades[q.id]=g;if(session.revealed?.includes(q.id)){session.correct+=+g.correct;session.combo=0;F.setFever(false);if(g.correct)F.SFX.correct(1);else F.SFX.wrong();}else record(q,g,session.questionElapsed);save();renderAnswer();renderFeedback(g);$('.b-answer-controls').innerHTML=button('次へ →','next','b-primary');$('#combo-label').textContent=session.combo+' COMBO';F.Muse.stop();}
  function next(){if(!session.grades[qNow().id])return;if(session.index===session.ids.length-1){finishPractice();return;}session.index++;session.questionElapsed=0;renderQuiz();}
  function finishPractice(){
   const answered=Object.keys(session.grades),result={kind:'practice',name:modeLabel(),score:session.correct,max:answered.length,combo:session.maxCombo,earned:session.earned,items:answered.map(id=>({id,grade:session.grades[id]})),scope:session.scope,assisted:!!session.revealed?.length,at:new Date().toISOString()};
@@ -158,7 +162,7 @@
    if(set.code===previous)set=BK.examFactory.generate(S.set.scope,(seed+1)>>>0);
   }else set=BK.examFactory.legacy(id);
   if(!set)return;if(set.code)store('boki2DopaQuest.lastExamCode',set.code);
-  session={kind:'exam',setId:set.id,exam:set.format?set:undefined,scope:set.scope,ids:set.sections.flatMap(s=>s.items.map(i=>i.id)),answers:{},revealed:[],index:0,remaining:set.minutes*60000,paused:false,interrupted:false,started:new Date().toISOString(),flags:[],memoIds:[]};lastTick=performance.now();persistExam();renderQuiz();
+  session={kind:'exam',setId:set.id,exam:set.format?set:undefined,scope:set.scope,ids:set.sections.flatMap(s=>s.items.map(i=>i.id)),answers:{},revealed:[],index:0,remaining:set.minutes*60000,paused:false,interrupted:false,started:new Date().toISOString(),flags:[],memoIds:[]};lastTick=performance.now();persistExam();F.play('start');renderQuiz();
  }
  function resumeExam(){if(!savedExam)return;session=validExam(savedExam);if(!session){savedExam=null;F.toast('中断データを読み込めませんでした');go('mocks');return;}session.paused=false;session.interrupted=true;lastTick=performance.now();renderQuiz();}
  function jump(i){session.index=Math.max(0,Math.min(session.ids.length-1,i));persistExam();renderQuiz();}
@@ -190,9 +194,9 @@
  function openModal(title,html,opt={}){
   closeModal(false);const focus=document.activeElement;modal={...opt,focus};app.inert=true;
   modalRoot.innerHTML=`<div class="b-overlay"><section class="b-sheet" role="dialog" aria-modal="true" aria-labelledby="modal-title"><header class="b-sheethead"><h2 id="modal-title">${esc(title)}</h2>${button('×','closeModal','', 'aria-label="閉じる"')}</header>${html}</section></div>`;
-  requestAnimationFrame(()=>$('.b-sheet input:not([readonly]),.b-sheet button')?.focus());
+  requestAnimationFrame(()=>$('.b-sheet input:not([readonly]),.b-sheet button')?.focus({preventScroll:true}));
  }
- function closeModal(dismiss=true){if(!modal)return;const old=modal;modal=null;modalRoot.innerHTML='';app.inert=false;if(old.focus?.isConnected)old.focus.focus();if(dismiss)old.dismiss?.();}
+ function closeModal(dismiss=true){if(!modal)return;const old=modal;modal=null;modalRoot.innerHTML='';app.inert=false;if(old.focus?.isConnected)old.focus.focus({preventScroll:true});if(dismiss)old.dismiss?.();}
  function accountSheet(setter){
   let tab='all',search='';const available=Object.values(BK.accounts).filter(a=>BK.inScope(a,currentScope()));
   openModal('勘定科目を選ぶ',`<input class="b-search" id="account-search" aria-label="勘定科目を検索" placeholder="科目名を検索"><div class="b-tabs">${[['all','すべて'],['recent','最近'],['asset','資産'],['liability','負債'],['equity','純資産'],['revenue','収益'],['expense','費用'],['industrial','工業']].map(([id,name])=>button(name,'accountTab:'+id,id==='all'?'on':'')).join('')}</div><div class="b-accountlist" id="account-list"></div>`);
@@ -261,7 +265,7 @@
   if(act==='confirmDiscard'){savedExam=null;try{localStorage.removeItem(EXAMKEY);}catch{}go('mocks');return;}
   if(act==='prev'){jump(session.index-1);return;}if(act==='nextExam'){jump(session.index+1);return;}if(act==='jump'){jump(+arg);return;}
   if(act==='section'){const set=examSet();jump(session.ids.indexOf(set.sections[+arg].items[0].id));return;}
-  if(act==='flag'){const id=qNow().id;session.flags=session.flags.includes(id)?session.flags.filter(x=>x!==id):[...session.flags,id];persistExam();renderQuiz();return;}
+  if(act==='flag'){const id=qNow().id;session.flags=session.flags.includes(id)?session.flags.filter(x=>x!==id):[...session.flags,id];persistExam();$('[data-action="flag"]').textContent=session.flags.includes(id)?'⚑ 見直し済み':'⚑ あとで見直す';$(`[data-action="jump:${session.index}"]`).textContent=`${session.index+1}${session.flags.includes(id)?' ⚑':''}`;return;}
   if(act==='submitExam'){const empty=session.ids.filter(id=>!hasAnswer(id)).length;openModal('模試を提出する',`<p class="b-sub">未入力の小問: ${empty}個<br>見直しマーク: ${session.flags.length}個<br>提出すると解答を確定し、採点します。</p><div class="b-actions">${button('提出して採点','confirmExam','b-primary')}${button('解答に戻る','closeModal')}</div>`);return;}
   if(act==='confirmExam'){finishExam();return;}
   if(act==='export'){exportRecords();return;}if(act==='import'){importRecords();return;}
@@ -284,28 +288,40 @@
   if(act==='tf'){session.answers[q.id]=arg==='true';renderAnswer();updateAnswer();}
   if(act==='choice'){const i=+arg;session.answers[q.id]=q.ans.length>1?(a.includes(i)?a.filter(n=>n!==i):[...a,i]):[i];renderAnswer();updateAnswer();}
  }
+ // メモ帳はクリック伝播を止めるため、捕捉段階で共通の操作音を鳴らす。
+ document.addEventListener('click',e=>{
+  const control=e.target.closest('button,summary,[data-number]');if(!control||control.disabled)return;
+  const act=control.dataset.action?.split(':')[0];
+  if(['grade','exam','replayExam','drill','theory','weak','ta','mixed','practice','categoryPractice','confirmExam'].includes(act))return;
+  if(control.matches('[data-number]')&&session?.paused)return;
+  const name=control.matches('[data-number],.memo button')||['num','calc','accountTab'].includes(act)?'tick':
+   ['closeModal','home','categoryUp','pause','leaveSession','prev'].includes(act)?'back':
+   ['jump','section','tf','choice','selectAccount'].includes(act)?'move':'ok';
+  F.play(name);
+ },true);
  document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b&&!b.disabled){F.audioUnlock();action(b.dataset.action).catch(err=>{console.error(err);F.toast('操作できませんでした。ホームから再度お試しください');});}const n=e.target.closest('[data-number]');if(n&&!n.disabled&&!session?.paused)numberSheet(n.dataset.number);});
- document.addEventListener('change',e=>{const key=e.target.dataset.setting;if(!key)return;const target=e.target;S.set[key]=target.type==='checkbox'?(key==='fx'?+target.checked:target.checked):['count','goal','vol'].includes(key)?+target.value:target.value;save();F.setVol();F.applyFx();if(key==='scope')F.toast(scopeLabel(S.set.scope)+'に変更しました');});
+ document.addEventListener('change',e=>{const key=e.target.dataset.setting;if(!key){if(e.target.matches('.memo input[type=range]'))F.play('tick');return;}const target=e.target;S.set[key]=target.type==='checkbox'?(key==='fx'?+target.checked:target.checked):['count','goal','vol'].includes(key)?+target.value:target.value;save();if(key==='vol')F.setVol();if(key==='fx')F.applyFx();F.play('tick');if(key==='scope')F.toast(scopeLabel(S.set.scope)+'に変更しました');});
  document.addEventListener('keydown',e=>{
   if(modal){
-   if(e.key==='Escape'){e.preventDefault();closeModal();return;}
+   if(e.key==='Escape'){e.preventDefault();F.play('back');closeModal();return;}
    if(e.key==='Tab'){const els=$$('button,input,select,textarea,a[href]',modalRoot).filter(el=>!el.disabled&&!el.hidden),first=els[0],last=els[els.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}return;}
-   if(modal.numberKey){if(/^\d$/.test(e.key)||e.key==='.'||e.key==='Backspace'||e.key==='Delete'||e.key==='-'){e.preventDefault();modal.numberKey(e.key==='Backspace'?'⌫':e.key==='Delete'?'C':e.key==='-'?'±':e.key);}else if(e.key==='Enter'){e.preventDefault();modal.numberDone();}return;}
-   if(modal.calcKey){const map={'Enter':'=','*':'×','/':'÷','-':'−','Backspace':'C'};if(/^[0-9.+%]$/.test(e.key)||map[e.key]){e.preventDefault();modal.calcKey(map[e.key]||e.key);}return;}
-  }else if(e.key==='Escape'&&session){e.preventDefault();pause();}
-  else if(e.target.matches('[data-number]')&&(e.key==='Enter'||/^\d$/.test(e.key))){e.preventDefault();numberSheet(e.target.dataset.number);if(/^\d$/.test(e.key))modal.numberKey(e.key);}
+   if(modal.numberKey){if(/^\d$/.test(e.key)||e.key==='.'||e.key==='Backspace'||e.key==='Delete'||e.key==='-'){e.preventDefault();F.play('tick');modal.numberKey(e.key==='Backspace'?'⌫':e.key==='Delete'?'C':e.key==='-'?'±':e.key);}else if(e.key==='Enter'){e.preventDefault();F.play('ok');modal.numberDone();}return;}
+   if(modal.calcKey){const map={'Enter':'=','*':'×','/':'÷','-':'−','Backspace':'C'};if(/^[0-9.+%]$/.test(e.key)||map[e.key]){e.preventDefault();F.play('tick');modal.calcKey(map[e.key]||e.key);}return;}
+  }else if(e.key==='Escape'&&session){e.preventDefault();F.play('back');pause();}
+  else if(e.target.matches('[data-number]')&&(e.key==='Enter'||/^\d$/.test(e.key))){e.preventDefault();F.play('tick');numberSheet(e.target.dataset.number);if(/^\d$/.test(e.key))modal.numberKey(e.key);}
  });
  document.addEventListener('pointerdown',e=>{document.body.dataset.input=e.pointerType==='touch'||e.pointerType==='pen'?'touch':'kb';F.audioUnlock();});
  document.body.dataset.input=matchMedia('(pointer:coarse)').matches?'touch':'kb';
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&session&&!session.paused){closeModal(false);pause();}});
  addEventListener('pagehide',()=>{if(memo?.isDirty())memo.save();if(session?.kind==='exam'){session.interrupted=true;persistExam();}save();});
  let padPrev=[];
- function pollPad(){const p=navigator.getGamepads?.()?.[0];if(!p)return;const buttons=p.buttons.map(b=>b.pressed);const controls=$$('button,input,select',modal?modalRoot:app).filter(b=>!b.disabled&&b.getClientRects().length);for(const idx of [12,13,0,1])if(buttons[idx]&&!padPrev[idx]){const focused=controls.indexOf(document.activeElement);if(idx===12||idx===13)controls[(focused+(idx===12?-1:1)+controls.length)%controls.length]?.focus();if(idx===0)document.activeElement?.click();if(idx===1){if(modal)closeModal();else if(session)pause();else go('menu');}}padPrev=buttons;}
+ function pollPad(){const p=navigator.getGamepads?.()?.[0];if(!p)return;const buttons=p.buttons.map(b=>b.pressed);const pressed=[12,13,0,1].filter(i=>buttons[i]&&!padPrev[i]);if(pressed.length){const controls=$$('button,input,select',modal?modalRoot:app).filter(b=>!b.disabled&&b.getClientRects().length);for(const idx of pressed){const focused=controls.indexOf(document.activeElement);if(idx===12||idx===13){F.play('move');controls[(focused+(idx===12?-1:1)+controls.length)%controls.length]?.focus();}if(idx===0)document.activeElement?.click();if(idx===1){F.play('back');if(modal)closeModal();else if(session)pause();else go('menu');}}}padPrev=buttons;}
+ let lastTimerEl=null,lastTimerText='';
  function frame(t){
   const delta=Math.max(0,t-lastTick);lastTick=t;
   if(session&&screen==='quiz'&&!session.paused){
    if(session.kind==='practice'&&!session.grades[qNow().id])session.questionElapsed+=delta;
-   if(session.remaining!==null){session.remaining=Math.max(0,session.remaining-delta);const el=$('#timer');if(el){el.textContent=time(session.remaining);el.classList.toggle('urgent',session.remaining<60000);}if(session.remaining===0){if(session.kind==='exam')finishExam();else{closeModal(false);finishPractice();}}}
+   if(session.remaining!==null){session.remaining=Math.max(0,session.remaining-delta);const el=$('#timer'),shown=time(session.remaining);if(el&&(el!==lastTimerEl||shown!==lastTimerText)){el.textContent=shown;el.classList.toggle('urgent',session.remaining<60000);lastTimerEl=el;lastTimerText=shown;}if(session.remaining===0){if(session.kind==='exam')finishExam();else{closeModal(false);finishPractice();}}}
    if(session?.kind==='exam'&&t-saveTick>10000){persistExam();saveTick=t;}
   }
   F.drawFx();F.Muse.tick(t);pollPad();requestAnimationFrame(frame);
