@@ -150,3 +150,75 @@ body.lite .b-orb::after,body.lite .b-card.featured::after{animation:none;opacity
 .b-soundtest button{flex:1 1 30%;font-size:13px;padding:10px 8px}
 @media(max-width:520px){.b-stamp{width:72px;height:72px;font-size:19px;right:8px;top:8px}.b-stamp.ng{font-size:14px}.b-feedback h3{padding-right:80px;min-height:56px}.b-seal{width:84px;height:84px;font-size:26px;right:8px;top:8px}.b-combo b{font-size:18px}}
 @media(prefers-reduced-motion:reduce){.b-chips span{opacity:1}.fx-aura{display:none}}
+
+/* ===== 明るい不正解・チラ見の称賛・パチスロ風の模試（2026-10-29 追加） ===== */
+.wobble{animation:wobble .62s cubic-bezier(.3,1.6,.5,1)}
+@keyframes wobble{20%{transform:scale(1.02,.97) rotate(-.8deg)}40%{transform:scale(.98,1.03) rotate(.7deg)}60%{transform:scale(1.01,.99) rotate(-.4deg)}80%{transform:scale(1,1.01)}}
+.b-stamp.ng{color:#ff8a00;font-size:17px;letter-spacing:0;animation-name:hankopop}
+.b-stamp.praise{color:#e0a100;font-size:19px;animation-name:hankopop}
+@keyframes hankopop{0%{opacity:0;transform:scale(.3) rotate(-30deg)}55%{opacity:1;transform:scale(1.18) rotate(-8deg)}75%{transform:scale(.94) rotate(-16deg)}100%{opacity:.9;transform:scale(1) rotate(-14deg)}}
+.b-qpanel.hit-ng::after{border-color:#6bcbff;box-shadow:0 0 0 6px rgba(107,203,255,.2),0 0 26px rgba(255,214,102,.35)}
+.b-feedback.wrong{background:linear-gradient(135deg,#fffbea,#eef9ff);border-color:#ffd99a}
+.pop.cheer{--pc:#ff8a00;color:#fffbe8}
+.pop.praise{--pc:#ffb300;color:#fff;z-index:25}
+.b-peek{font-weight:900;color:#b86e00;background:linear-gradient(90deg,#fff6d6,#ffeef7);border:1px solid #ffd99a;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:15px;animation:peekin .5s cubic-bezier(.2,1.5,.4,1) backwards}
+@keyframes peekin{from{opacity:0;transform:scale(.85)}}
+.banner.praise{--bc:#ffb300;--bd:#b5179e;--band:rgba(255,158,205,.22)}
+.banner.slot{--band:rgba(27,11,58,.66);text-shadow:2px 0 0 #ff2e93,-2px 0 0 #ff2e93,0 2px 0 #ff2e93,0 -2px 0 #ff2e93,2px 2px 0 #ff2e93,-2px -2px 0 #ff2e93,0 0 14px #ff5fb8,0 0 28px #29d4ff}
+.banner.slot small,.banner.bonus small{color:#fff;text-shadow:0 0 6px #29d4ff,0 0 2px #000,0 0 2px #000}
+.banner.slot.small{font-size:clamp(26px,7vw,52px)}
+.banner.bonus{--bc:#e0283c;--bd:#4a0010;--band:rgba(30,6,10,.62);font-size:clamp(40px,11.5vw,104px)}
+.banner.bonus.t1{--bc:#1a7fd6;--bd:#062a4f}
+.banner.bonus.t3{--bc:#e8a000;--bd:#4a3000}
+.banner.bonus.t4{text-shadow:3px 0 0 #ff3d9a,-3px 0 0 #7c4dff,0 3px 0 #ffb300,0 -3px 0 #29d4ff,2px 2px 0 #2ecc71,-2px -2px 0 #ff7a00,2px -2px 0 #29d4ff,-2px 2px 0 #ff3d9a,0 7px 0 #2a0a4a,0 0 30px rgba(255,255,255,.8)}
+.b-slot{--cell:52px;position:relative;margin:6px auto 10px;max-width:330px;padding:12px 14px 14px;border-radius:22px;background:linear-gradient(160deg,#2a1450,#120a2a 60%,#2a0e3a);box-shadow:0 0 0 3px #ffcf4a,0 0 0 6px #7c4dff,0 12px 34px rgba(42,20,80,.45);color:#fff;text-align:left}
+.b-slot-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;font-size:11px;letter-spacing:.12em}
+.b-slot-head>b{font-size:13px;color:#ffcf4a;letter-spacing:.2em;text-shadow:0 0 8px rgba(255,207,74,.7);white-space:nowrap}
+.b-slot-pay{font-family:ui-monospace,Menlo,Consolas,monospace;color:#9bf6c0;white-space:nowrap}
+.b-slot-pay b{color:#ff5f5f;font-size:15px;text-shadow:0 0 6px rgba(255,95,95,.8);font-variant-numeric:tabular-nums}
+.b-gogo{display:inline-block;padding:3px 9px;border-radius:9px;background:#2d1d48;color:#5e4a7a;font-weight:900;font-style:italic;letter-spacing:.06em;font-size:14px;border:1px solid #4a3768;white-space:nowrap}
+.b-gogo.lit{background:radial-gradient(circle at 50% 40%,#fff 0,#ff7ad1 30%,#ff1f8f 70%);color:#fff;border-color:#ffd1ec;box-shadow:0 0 14px #ff3d9a,0 0 28px rgba(255,61,154,.6);text-shadow:0 0 6px #fff;animation:gogo .9s ease-in-out infinite alternate}
+@keyframes gogo{to{transform:scale(1.08)}}
+.b-gogo.mini{font-size:11px;padding:3px 7px}
+.b-reels{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px;border-radius:14px;background:#0b0618;box-shadow:inset 0 0 0 2px #3b2a5c}
+.b-reel{position:relative;height:calc(var(--cell) * 3);overflow:hidden;border-radius:9px;background:linear-gradient(180deg,#d9d6e2,#fff 30%,#fff 70%,#d9d6e2)}
+.b-reel::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35),transparent 30%,transparent 70%,rgba(0,0,0,.35));pointer-events:none}
+.b-strip{display:flex;flex-direction:column;will-change:transform}
+.b-strip span{flex:0 0 var(--cell);height:var(--cell);display:grid;place-items:center;font-size:calc(var(--cell) * .74);font-weight:900;color:#1c2033;font-variant-numeric:tabular-nums;line-height:1}
+.b-strip span.seven{color:#e0283c;font-style:italic}
+.b-reel.spin .b-strip{animation:reelspin .22s linear infinite}
+.b-reel:nth-child(2).spin .b-strip{animation-delay:-.08s}
+.b-reel:nth-child(3).spin .b-strip{animation-delay:-.15s}
+@keyframes reelspin{from{transform:translateY(calc(var(--cell) * -3))}to{transform:translateY(calc(var(--cell) * -13))}}
+.b-payline{position:absolute;left:4px;right:4px;top:50%;height:3px;margin-top:-1.5px;background:linear-gradient(90deg,transparent,#ff3d9a 10%,#ff3d9a 90%,transparent);opacity:.75;pointer-events:none;border-radius:2px}
+.b-slot.chance .b-payline{background:linear-gradient(90deg,transparent,#29d4ff 10%,#29d4ff 90%,transparent);animation:paylineblink .25s steps(2) infinite}
+.b-slot.win .b-payline{background:linear-gradient(90deg,#ffcf4a,#ff3d9a,#29d4ff,#9bf6c0,#ffcf4a);opacity:1;height:5px;margin-top:-2.5px;animation:paylineblink .3s steps(2) 6}
+@keyframes paylineblink{50%{opacity:.25}}
+.b-slot.win{box-shadow:0 0 0 3px #ffcf4a,0 0 0 6px #ff3d9a,0 0 30px rgba(255,61,154,.55),0 12px 34px rgba(42,20,80,.45)}
+.b-scorebox{position:relative}
+.b-scorebox .b-seal{top:-8px;right:0}
+.b-result-hero .b-score.scorepop{animation:scorepop .45s cubic-bezier(.2,1.6,.4,1)}
+@keyframes scorepop{from{transform:scale(1.35)}}
+.b-seal.praise{color:#e0a100;font-size:28px}
+.b-slotcount{font-family:ui-monospace,Menlo,Consolas,monospace;background:#120a2a;color:#9bf6c0;border-radius:8px;padding:6px 9px;font-size:12px;letter-spacing:.06em;box-shadow:inset 0 0 0 1px #3b2a5c;white-space:nowrap}
+.b-slotcount b{color:#ff5f5f;font-size:15px;text-shadow:0 0 6px rgba(255,95,95,.7)}
+.b-mocknav button.lit{animation:navlit .6s ease-out}
+@keyframes navlit{0%{box-shadow:0 0 0 0 rgba(255,61,154,.7);transform:scale(1.15);background:#ffe0f1}100%{box-shadow:0 0 0 10px rgba(255,61,154,0);transform:none}}
+.fx-marquee{position:fixed;inset:0;z-index:9;pointer-events:none;overflow:hidden;opacity:0;transition:opacity .3s}
+.fx-marquee.on{opacity:1}
+.fx-marquee i{position:absolute;--a:#ffcf4a;--b:#ff3d9a;--c:#29d4ff}
+.fx-marquee .t,.fx-marquee .b{left:-48px;right:-48px;height:6px;background:repeating-linear-gradient(90deg,var(--a) 0 10px,transparent 10px 16px,var(--b) 16px 26px,transparent 26px 32px,var(--c) 32px 42px,transparent 42px 48px);animation:marqx .6s linear infinite}
+.fx-marquee .t{top:env(safe-area-inset-top,0px)}
+.fx-marquee .b{bottom:0;animation-direction:reverse}
+.fx-marquee .l,.fx-marquee .r{top:-48px;bottom:-48px;width:6px;background:repeating-linear-gradient(180deg,var(--a) 0 10px,transparent 10px 16px,var(--b) 16px 26px,transparent 26px 32px,var(--c) 32px 42px,transparent 42px 48px);animation:marqy .6s linear infinite}
+.fx-marquee .l{left:0;animation-direction:reverse}
+.fx-marquee .r{right:0}
+@keyframes marqx{to{transform:translateX(48px)}}
+@keyframes marqy{to{transform:translateY(48px)}}
+.fx-marquee.fast i{animation-duration:.25s}
+.fx-marquee.win i{--a:#ffcf4a;--b:#fff;--c:#ff3d9a;animation-duration:.3s}
+.fx-marquee.rainbow i{--a:#ff3d9a;--b:#ffcf4a;--c:#2ecc71;animation-duration:.2s}
+.fx-freeze{position:fixed;inset:0;z-index:14;background:#05020c;opacity:.88;pointer-events:none;animation:freezein .12s ease-out}
+.fx-freeze.out{opacity:0;transition:opacity .35s}
+@keyframes freezein{from{opacity:0}}
+@media(max-width:520px){.b-slot{--cell:46px;padding:10px 10px 12px}.b-slot-head{font-size:10px}.b-slot-head>b{font-size:11px;letter-spacing:.12em}.b-scorebox .b-seal{top:-4px}.b-stamp.ng,.b-stamp.praise{font-size:14px}}
