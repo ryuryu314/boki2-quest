@@ -380,6 +380,8 @@
  if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   const hadController=!!navigator.serviceWorker.controller;
   navigator.serviceWorker.register('./sw.js').then(reg=>document.addEventListener('visibilitychange',()=>{if(!document.hidden)reg.update().catch(()=>{});})).catch(()=>{});
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadController)return;swUpdated=true;if(screen==='menu'&&!session&&!modal)location.reload();});
+  // 表示中の版が最新のページ本体と同じJS/CSSを読んでいれば、再読み込みは不要。
+  const stale=async()=>{try{const html=await (await fetch('./',{cache:'no-cache'})).text();return [...document.querySelectorAll('script[src],link[rel="stylesheet"]')].some(e=>!html.includes(e.getAttribute('src')||e.getAttribute('href')));}catch{return true;}};
+  navigator.serviceWorker.addEventListener('controllerchange',async()=>{if(!hadController||!(await stale()))return;swUpdated=true;if(screen==='menu'&&!session&&!modal)location.reload();});
  }
 })();
