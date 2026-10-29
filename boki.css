@@ -155,14 +155,10 @@ body.lite .b-orb::after,body.lite .b-card.featured::after{animation:none;opacity
 .wobble{animation:wobble .62s cubic-bezier(.3,1.6,.5,1)}
 @keyframes wobble{20%{transform:scale(1.02,.97) rotate(-.8deg)}40%{transform:scale(.98,1.03) rotate(.7deg)}60%{transform:scale(1.01,.99) rotate(-.4deg)}80%{transform:scale(1,1.01)}}
 .b-stamp.ng{color:#ff8a00;font-size:17px;letter-spacing:0;animation-name:hankopop}
-.b-stamp.praise{color:#e0a100;font-size:19px;animation-name:hankopop}
 @keyframes hankopop{0%{opacity:0;transform:scale(.3) rotate(-30deg)}55%{opacity:1;transform:scale(1.18) rotate(-8deg)}75%{transform:scale(.94) rotate(-16deg)}100%{opacity:.9;transform:scale(1) rotate(-14deg)}}
 .b-qpanel.hit-ng::after{border-color:#6bcbff;box-shadow:0 0 0 6px rgba(107,203,255,.2),0 0 26px rgba(255,214,102,.35)}
 .b-feedback.wrong{background:linear-gradient(135deg,#fffbea,#eef9ff);border-color:#ffd99a}
 .pop.cheer{--pc:#ff8a00;color:#fffbe8}
-.pop.praise{--pc:#ffb300;color:#fff;z-index:25}
-.b-peek{font-weight:900;color:#b86e00;background:linear-gradient(90deg,#fff6d6,#ffeef7);border:1px solid #ffd99a;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:15px;animation:peekin .5s cubic-bezier(.2,1.5,.4,1) backwards}
-@keyframes peekin{from{opacity:0;transform:scale(.85)}}
 .banner.praise{--bc:#ffb300;--bd:#b5179e;--band:rgba(255,158,205,.22)}
 .banner.slot{--band:rgba(27,11,58,.66);text-shadow:2px 0 0 #ff2e93,-2px 0 0 #ff2e93,0 2px 0 #ff2e93,0 -2px 0 #ff2e93,2px 2px 0 #ff2e93,-2px -2px 0 #ff2e93,0 0 14px #ff5fb8,0 0 28px #29d4ff}
 .banner.slot small,.banner.bonus small{color:#fff;text-shadow:0 0 6px #29d4ff,0 0 2px #000,0 0 2px #000}
@@ -199,7 +195,6 @@ body.lite .b-orb::after,body.lite .b-card.featured::after{animation:none;opacity
 .b-scorebox .b-seal{top:-8px;right:0}
 .b-result-hero .b-score.scorepop{animation:scorepop .45s cubic-bezier(.2,1.6,.4,1)}
 @keyframes scorepop{from{transform:scale(1.35)}}
-.b-seal.praise{color:#e0a100;font-size:28px}
 .b-slotcount{font-family:ui-monospace,Menlo,Consolas,monospace;background:#120a2a;color:#9bf6c0;border-radius:8px;padding:6px 9px;font-size:12px;letter-spacing:.06em;box-shadow:inset 0 0 0 1px #3b2a5c;white-space:nowrap}
 .b-slotcount b{color:#ff5f5f;font-size:15px;text-shadow:0 0 6px rgba(255,95,95,.7)}
 .b-mocknav button.lit{animation:navlit .6s ease-out}
@@ -221,4 +216,36 @@ body.lite .b-orb::after,body.lite .b-card.featured::after{animation:none;opacity
 .fx-freeze{position:fixed;inset:0;z-index:14;background:#05020c;opacity:.88;pointer-events:none;animation:freezein .12s ease-out}
 .fx-freeze.out{opacity:0;transition:opacity .35s}
 @keyframes freezein{from{opacity:0}}
-@media(max-width:520px){.b-slot{--cell:46px;padding:10px 10px 12px}.b-slot-head{font-size:10px}.b-slot-head>b{font-size:11px;letter-spacing:.12em}.b-scorebox .b-seal{top:-4px}.b-stamp.ng,.b-stamp.praise{font-size:14px}}
+@media(max-width:520px){.b-slot{--cell:46px;padding:10px 10px 12px}.b-slot-head{font-size:10px}.b-slot-head>b{font-size:11px;letter-spacing:.12em}.b-scorebox .b-seal{top:-4px}.b-stamp.ng{font-size:14px}}
+
+/* ===== 計算用紙を最下部へ・模試の即時採点（2026-10-29 追加） ===== */
+.b-qpanel .b-study-tools{margin-top:12px}
+.fx-judge{position:fixed;left:50%;top:40%;z-index:12;display:grid;justify-items:center;gap:4px;pointer-events:none;transform:translate(-50%,-50%);animation:judgein 1.15s cubic-bezier(.2,1.4,.4,1) forwards}
+.fx-judge b{display:grid;place-items:center;width:150px;height:150px;border-radius:50%;font-size:104px;line-height:1;font-weight:900;color:#fff;background:radial-gradient(circle at 35% 30%,#ff8a9a,#e0283c 70%);box-shadow:0 0 0 6px #fff,0 0 0 10px #e0283c,0 14px 40px rgba(224,40,60,.4)}
+.fx-judge strong{font-size:44px;font-weight:900;font-style:italic;letter-spacing:.04em;color:#fff;--c:#e0283c;text-shadow:3px 0 0 var(--c),-3px 0 0 var(--c),0 3px 0 var(--c),0 -3px 0 var(--c),2px 2px 0 var(--c),-2px -2px 0 var(--c),2px -2px 0 var(--c),-2px 2px 0 var(--c),0 7px 0 rgba(40,20,80,.25)}
+.fx-judge small{font-size:18px;font-weight:900;color:var(--ink);text-shadow:0 0 4px #fff,0 0 10px #fff,0 0 16px #fff}
+.fx-judge.part b{background:radial-gradient(circle at 35% 30%,#ffe9a8,#ffb300 70%);box-shadow:0 0 0 6px #fff,0 0 0 10px #ffb300,0 14px 40px rgba(255,179,0,.4)}
+.fx-judge.part strong{--c:#e08600}
+.fx-judge.ng b{background:radial-gradient(circle at 35% 30%,#b8ecff,#29a3f0 70%);box-shadow:0 0 0 6px #fff,0 0 0 10px #29a3f0,0 14px 40px rgba(41,163,240,.4)}
+.fx-judge.ng strong{--c:#1a7fd6}
+@keyframes judgein{0%{opacity:0;transform:translate(-50%,-50%) scale(2.4) rotate(-12deg)}18%{opacity:1;transform:translate(-50%,-50%) scale(.92) rotate(3deg)}28%{transform:translate(-50%,-50%) scale(1.04) rotate(0)}36%,72%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-62%) scale(1.06)}}
+.b-lastjudge{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:18px 0 0;padding:10px 12px;border-radius:14px;font-size:13px;border:1px solid;animation:lastin .4s cubic-bezier(.2,1.4,.4,1) backwards}
+.b-lastjudge.ok{background:#fff1f3;border-color:#ffc2cb;color:#c0182d}
+.b-lastjudge.part{background:#fff8e1;border-color:#ffe08a;color:#9a6b00}
+.b-lastjudge.ng{background:#eef8ff;border-color:#b5e2ff;color:#0f6aa8}
+.b-lastjudge b{font-size:14px}
+.b-lastjudge small{font-size:12px;margin-left:4px}
+.b-lastans{flex-basis:100%;order:3;color:var(--ink);font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
+.b-lastbtn{margin-left:auto;padding:6px 12px;font-size:12px}
+@keyframes lastin{from{opacity:0;transform:translateY(-6px)}}
+.b-mocknav .gok{border-color:#e0283c;color:#c0182d}
+.b-mocknav .gok::after{content:" ◎"}
+.b-mocknav .gpart{border-color:#ffb300;color:#9a6b00}
+.b-mocknav .gpart::after{content:" △"}
+.b-mocknav .gng{border-color:#29a3f0;color:#0f6aa8}
+.b-mocknav .gng::after{content:" ✕"}
+.b-mocknav .on.gok,.b-mocknav .on.gpart,.b-mocknav .on.gng{color:#fff}
+.b-slotget{font-family:ui-monospace,Menlo,Consolas,monospace;background:#120a2a;color:#ffcf4a;border-radius:8px;padding:6px 9px;font-size:12px;letter-spacing:.06em;box-shadow:inset 0 0 0 1px #3b2a5c;white-space:nowrap}
+.b-slotget b{color:#fff;font-size:15px;text-shadow:0 0 6px rgba(255,207,74,.8)}
+.b-slotget.bump{animation:xpbump .3s ease-out}
+@media(max-width:520px){.fx-judge b{width:120px;height:120px;font-size:84px}.fx-judge strong{font-size:36px}.fx-judge small{font-size:15px}}

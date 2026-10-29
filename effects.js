@@ -137,12 +137,6 @@ function createSynth(ac, opt = {}) {
       [0, 4, 7, 12].forEach((s, i) => tone(semi(659.25, s), .09, 'square', .045, .1 + i * .05, 0, { lp: 5600, pan: -.4 + i * .25, verb: .2 }));
       bell(1568, .32, .05, .7); sparkle(5, .3, .03, 2093);
     },
-    // 解答をチラ見しても「えらい」: きらめきと上向きの和音。
-    praise() {
-      sparkle(6, 0, .035, 2093);
-      [0, 4, 7, 11, 12].forEach((s, i) => tone(semi(783.99, s), .1, 'triangle', .06, .05 + i * .05, 0, { verb: .3, pan: -.4 + i * .2 }));
-      bell(2637, .32, .06, .9);
-    },
     // ---- パチスロ風（模試） ----
     lever() { noise(.04, .12, 0, { f: 900, q: 1.2 }); tone(130, .09, 'sine', .25, 0, .45, { attack: .002 }); noise(.012, .06, .045, { type: 'highpass', f: 4000 }); },
     // リールの回転音: ノイズを毎秒21回刻み、モーターのうなりを重ねる。
@@ -283,13 +277,16 @@ let ac = null;
 try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; }
 const level = () => (S.set.vol / 100) * .6, syn = createSynth(ac, { level }), SFX = syn.SFX;
 const setVol = () => { syn.setLevel(level()); if (ac) soundHint(); };
+// BGM（bgm.js）。効果音とは別の音量で、大きなファンファーレの間だけ下げる。
+const bgmLevel = () => ((S.set.bgm ?? 40) / 100) * .25, bgm = window.createBgm ? window.createBgm(ac, { level: bgmLevel }) : null;
+const DUCK = new Set(['level', 'fever', 'crit', 'pass', 'bigBonus', 'premium', 'fanfare', 'record', 'daily', 'timeUp', 'go', 'freeze']);
 // iOS の古い版は無音バッファの再生を伴わないと解錠されないことがある。
 function audioUnlock() {
   if (!ac || ac.state === 'running') return;
   try { const b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); } catch (e) { /* unsupported */ }
   try { const p = ac.resume(); return p && p.then ? p.catch(() => {}) : undefined; } catch (e) { return undefined; }
 }
-function soundHint() { $('#sound-hint').classList.toggle('show', !!ac && S.set.vol > 0 && ac.state !== 'running'); }
+function soundHint() { $('#sound-hint').classList.toggle('show', !!ac && (S.set.vol > 0 || bgmLevel() > 0) && ac.state !== 'running'); }
 if (ac) { ac.onstatechange = soundHint; setTimeout(soundHint, 1500); }
 addEventListener('touchend', audioUnlock, { passive: true });
 addEventListener('keydown', audioUnlock);
@@ -297,6 +294,7 @@ function run(name, args) { try { SFX[name](...args); } catch (e) { /* 音が出�
 // iOS等では最初の操作で再生が許可されるまで非同期に待つ。
 function play(name, ...args) {
   if (!SFX[name] || !ac || S.set.vol <= 0) return;
+  if (bgm && DUCK.has(name)) bgm.duck();
   if (ac.state === 'running') run(name, args);
   else { const pending = audioUnlock(); if (pending) pending.then(() => { if (ac && ac.state === 'running') run(name, args); }); }
 }
@@ -464,6 +462,14 @@ function stopReel(reel, d) {
   reel.classList.remove('spin'); strip.style.transition = 'none'; strip.style.transform = `translateY(${-(7 + d) * cell}px)`; void strip.offsetWidth;
   strip.style.transition = 'transform .38s cubic-bezier(.2,1.45,.45,1)'; strip.style.transform = `translateY(${-(9 + d) * cell}px)`; reel.classList.add('stopped');
 }
+// 模試の正誤表示: 画面中央に大きな丸印と言葉を一瞬だけ。続けて押したら前のものを差し替える。
+let judgeEl = null;
+function judge(mark, word, sub, kind) {
+  if (judgeEl) judgeEl.remove();
+  const e = document.createElement('div'); e.className = 'fx-judge ' + kind; e.setAttribute('aria-hidden', 'true');
+  e.innerHTML = '<b>' + escHtml(mark) + '</b><strong>' + escHtml(word) + '</strong><small>' + escHtml(sub) + '</small>';
+  document.body.appendChild(e); judgeEl = e; setTimeout(() => { e.remove(); if (judgeEl === e) judgeEl = null; }, 1150);
+}
 // 100点の「フリーズ」: 画面を暗くして止める。
 function freezeScreen(ms) {
   if (calm()) return;
@@ -476,6 +482,7 @@ function toast(msg) { const t = document.createElement('div'); t.textContent = m
 let aura = null;
 function setFever(on) {
   feverOn = !!on; document.body.classList.toggle('fever', feverOn);
+  if (bgm && /^(practice|fever)$/.test(bgm.current() || '')) bgm.play(feverOn ? 'fever' : 'practice');
   if (feverOn && !aura) { aura = document.createElement('div'); aura.className = 'fx-aura'; aura.setAttribute('aria-hidden', 'true'); document.body.appendChild(aura); }
 }
 const center = el => { const r = el && el.isConnected ? el.getBoundingClientRect() : null; return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: W / 2, y: H / 2 }; };
@@ -497,8 +504,8 @@ function countUp(el, to, o = {}) {
     requestAnimationFrame(frame);
   });
 }
-// ハンコ: 正解は朱色の「正解」、不正解はオレンジの「伸びしろ」、チラ見は金色の「えらい」。押した瞬間に音と飛沫。
-const STAMPINK = { ok: '#d7263d', ng: '#ff8a00', praise: '#e0a100' };
+// ハンコ: 正解は朱色の「正解」、不正解はオレンジの「伸びしろ」。押した瞬間に音と飛沫。
+const STAMPINK = { ok: '#d7263d', ng: '#ff8a00' };
 function stamp(host, ok, text, quiet, kind) {
   if (!host) return null;
   const k = kind || (ok ? 'ok' : 'ng'), s = document.createElement('span'); s.className = 'b-stamp ' + k; s.setAttribute('aria-hidden', 'true'); s.innerHTML = '<b>' + escHtml(text) + '</b>'; host.appendChild(s);
@@ -546,7 +553,6 @@ const RANKCOL = { S: '#ff9500', A: '#ff3d9a', B: '#1a7fd6', C: '#15a35c', D: '#f
 const PASTEL = ['#ffd93d', '#6bcbff', '#ff9ecd', '#9bf6c0', '#c3a6ff'];
 const MISSBG = 'radial-gradient(ellipse at center, rgba(255,236,153,0) 40%, rgba(255,214,102,.34) 75%, rgba(107,203,255,.3) 100%)';
 const CHEERS = ['ドンマイ!', 'おしい!', '伸びしろ発見!', 'ナイスチャレンジ!', '次は取れる!', '覚えるチャンス!'];
-const PRAISE = ['チラ見もえらい!', '確かめてえらい!', '学ぶ姿勢が満点!', '調べる力も実力!', 'わからないを放置しない!'];
 const pick = list => list[Math.random() * list.length | 0];
 const moment = {
   // 練習の開始。60秒チャレンジは READY → GO。
@@ -564,11 +570,10 @@ const moment = {
   answer(ev) {
     // panel は枠の光、stage は揺らす対象（入場アニメーションを持たない外枠）。
     const x = ev.x ?? W / 2, y = ev.y ?? H * .6, panel = ev.panel, stage = ev.stage || app;
-    // 解答を見た問題も褒める（経験値・習得判定の規則は game.js 側で従来どおり）。
+    // 解答を見た問題は経験値・コンボの演出なしで、正誤だけを見せる。
     if (ev.assisted) {
-      play('praise'); haptic('ok'); stamp(ev.host, true, 'えらい', false, 'praise');
-      stars(x, y, 16, 8, ['#ffd93d', '#ffb300', '#ff9ecd', '#6bcbff']); burst(x, y, '#ffc21a', 26, 8); ring(x, y, '#ffc21a');
-      pop(ev.ok ? 'チラ見から正解、えらい!' : pick(PRAISE), x, y - 48, 'praise big'); edge(panel, 'ok');
+      play(ev.ok ? 'correct' : 'wrong', 1); stamp(ev.host, ev.ok, ev.ok ? '正解' : '伸びしろ', true);
+      if (ev.ok) { burst(x, y, '#7c4dff', 30, 8); stars(x, y, 8); } else stars(x, y, 10, 6, PASTEL);
       return;
     }
     haptic(ev.xp && ev.xp.up ? 'big' : ev.ok ? (ev.combo >= 10 ? 'good' : 'ok') : 'bad');
@@ -616,9 +621,8 @@ const moment = {
     later(() => o.counts.forEach((c, i) => countUp(c.el, c.to, { ms: 700 * T, fmt: c.fmt, tick: i === 0 ? p => play('count', p) : null })), 600 * T);
     later(() => countUp(o.xpEl, o.gain, { ms: 900 * T, fmt: n => '+' + n, tick: p => play('coinTick', Math.round(p * 5)) }).then(() => { if (o.xpEl && o.xpEl.isConnected) { play('register'); bump(o.xpEl.parentElement); } }), 900 * T);
     if (o.perfect) later(() => banner('PERFECT!!<small>全問正解</small>', 'crit', { keep: true, sfx: () => play('record'), fx: () => fireworks(3) }), 1500 * T);
-    // チラ見ありでも、低めのランクでも、最後は明るく褒める。
-    if (o.assisted) later(() => banner('チラ見しても完走!<small>確かめながら進めるのも実力、えらい!</small>', 'praise', { keep: true, sfx: () => play('praise'), fx: () => confetti(90) }), 1250 * T);
-    else if ('CD'.includes(o.letter)) later(() => banner(o.letter === 'D' ? '伸びしろMAX!<small>間違えた分だけ、次の正解が近い</small>' : 'ナイスチャレンジ!<small>この調子で積み上げよう</small>', 'praise', { sfx: () => play('comboBreak'), fx: () => { confetti(70); stars(W / 2, H * .4, 14, 8, PASTEL); } }), 1250 * T);
+    // 低めのランクでも、最後は明るく。
+    if ('CD'.includes(o.letter)) later(() => banner(o.letter === 'D' ? '伸びしろMAX!<small>間違えた分だけ、次の正解が近い</small>' : 'ナイスチャレンジ!<small>この調子で積み上げよう</small>', 'praise', { sfx: () => play('comboBreak'), fx: () => { confetti(70); stars(W / 2, H * .4, 14, 8, PASTEL); } }), 1250 * T);
     if (o.newRec) later(() => banner('NEW RECORD!<small>' + escHtml(o.newRec) + '</small>', 'record', { keep: true, sfx: () => play('record'), fx: () => confetti(100) }), 1700 * T);
   },
   // ---- 模試（パチスロ風）。正誤は提出まで出さず、入力の進み具合だけを光と音で返す ----
@@ -627,11 +631,17 @@ const moment = {
   sectionClear(name) { play('complete'); marquee('', 900); banner(`${escHtml(name)}<small>入力コンプリート!</small>`, 'slot small', { ms: 1100 }); },
   allAnswered(el) { play('chance'); marquee('win', 2000); if (el) el.classList.add('lit'); banner('ALL ANSWERED!<small>提出でボーナス判定</small>', 'slot', { keep: true, ms: 1500 }); },
   examAlert(min) { play('alert'); banner(`残り${min}分<small>${min <= 5 ? 'ラストスパート!' : 'ペース配分チェック'}</small>`, 'slot small', { keep: true, ms: 1300 }); },
-  // 解答をチラ見したら褒める（解答の画面の上に見えるよう画面上部へ）。
-  peek() { play('praise'); haptic('light'); pop(pick(PRAISE), W / 2, H * .12, 'praise big'); stars(W / 2, H * .12, 14, 7, ['#ffd93d', '#ffb300', '#ff9ecd']); },
+  // 模試の「次へ進む」: 今の問題の正誤を画面中央に一瞬だけ大きく出し、次の問題はすぐ表示する。
+  examJudge(o) {
+    judge(o.ok ? '◎' : o.part ? '△' : '✕', o.ok ? '正解!' : o.part ? '部分点!' : '不正解', o.ok || o.part ? '+' + o.got + '点' : pick(CHEERS), o.ok ? 'ok' : o.part ? 'part' : 'ng');
+    if (o.ok) { play('correct', 3); play('coin'); haptic('ok'); burst(W / 2, H * .42, '#ffb300', 50, 11); stars(W / 2, H * .42, 12, 9); ring(W / 2, H * .42, '#ff3d9a'); }
+    else if (o.part) { play('chance'); haptic('light'); stars(W / 2, H * .42, 12, 8, ['#ffd93d', '#6bcbff', '#ff9ecd']); }
+    else { play('wrong'); haptic('bad'); stars(W / 2, H * .42, 14, 7, PASTEL); burst(W / 2, H * .42, '#6bcbff', 22, 7); }
+    if (o.nav) bump(o.nav, 'lit'); if (o.get) bump(o.get, 'bump');
+  },
   // 模試の結果発表: レバー → 3つのリールが百・十・一の位で止まる → GOGO!ランプ → ボーナス → メダル払い出し。
   slot(o) {
-    const q = calm(), k = q ? .25 : 1, frz = o.perfect && !o.assisted && !q ? 1000 : 0;
+    const q = calm(), k = q ? .25 : 1, frz = o.perfect && !q ? 1000 : 0;
     const t0 = frz, t1 = frz + 1300 * k, t2 = frz + 2000 * k, t3 = frz + (o.passed && !q ? 3200 : 2800) * k, tEnd = t3 + 220;
     if (frz) { play('freeze'); freezeScreen(frz - 80); later(() => { play('premium'); flash('rgba(255,255,255,.85)'); }, frz - 120); }
     later(() => {
@@ -651,11 +661,7 @@ const moment = {
       if (o.verdict) o.verdict.classList.add('show');
       const m = center(o.machine);
       if (o.payout > 0) { coins(m.x, m.y, Math.min(30, 6 + (o.payout / 4 | 0))); later(() => play('payout', Math.min(40, 8 + (o.payout / 5 | 0))), 250); countUp(o.payEl, o.payout, { ms: 1400, fmt: n => '+' + n }); }
-      if (o.assisted) {
-        if (o.machine) o.machine.classList.add('win');
-        if (o.seal) { o.seal.classList.add('go'); play('stamp', true, .2); }
-        banner('チラ見も実力!<small>解答を確かめながら最後まで完走、えらい!</small>', 'praise', { keep: true, ms: 1900, sfx: () => play('praise'), fx: () => { confetti(120); stars(m.x, m.y, 20, 10, PASTEL); } });
-      } else if (o.passed) {
+      if (o.passed) {
         if (o.machine) o.machine.classList.add('win');
         if (o.seal) { o.seal.classList.add('go'); play('stamp', true, .2); later(() => { const c = center(o.seal); ink(c.x, c.y, '#d7263d', 26); ring(c.x, c.y, 'rgba(215,38,61,.5)', 4); shake(app, true); }, 210); }
         const B = [null, ['BIG BONUS!', '合格ライン70点を突破 · 青7'], ['BIG BONUS!!', '80点超えで合格 · 赤7'], ['SUPER BIG!!', '90点超えで合格 · 金7'], ['PREMIUM BONUS!!!', '100点満点 · 虹7']][o.tier] || ['BIG BONUS!', '合格'];
@@ -679,7 +685,6 @@ const moment = {
     else if (name === 'level') levelUp(12, '貸借の番人', false);
     else if (name === 'pass') { play('pass'); fireworks(3); confetti(140); banner('PASS!!<small>合格ライン 70点を突破</small>', 'pass', { ms: 1800 }); }
     else if (name === 'miss') { play('wrong'); shake(app, true, 'wobble'); flash(MISSBG); pop(pick(CHEERS), x, y - 44, 'cheer big'); stars(x, y, 14, 7, PASTEL); }
-    else if (name === 'peek') { play('praise'); stars(x, y, 16, 8, ['#ffd93d', '#ffb300', '#ff9ecd', '#6bcbff']); ring(x, y, '#ffc21a'); pop(pick(PRAISE), x, y - 44, 'praise big'); }
     else if (name === 'slot') {
       play('lever'); play('reelSpin', 1.4); marquee('fast', 3800);
       later(() => play('reelStop', 0), 500); later(() => { play('reelStop', 1); play('peka'); }, 900); later(() => { play('reelStop', 2); play('kyuin'); }, 1300);
@@ -748,7 +753,8 @@ return {
   burst, stars, coins, ink, ring, streaks, rays, confetti, fireworks,
   banner, pop, toast, flash, shake, bump, stamp, countUp, setFever, drawFx, reset,
   moment, Muse, setVol, applyFx,
-  debug: { particles: () => P.length, queued: () => queue.length + (showing ? 1 : 0), fever: () => feverOn },
+  bgm: name => { if (bgm) bgm.play(name === 'practice' && feverOn ? 'fever' : name); }, setBgmVol: () => { if (bgm) bgm.setLevel(); if (ac) soundHint(); },
+  debug: { particles: () => P.length, queued: () => queue.length + (showing ? 1 : 0), fever: () => feverOn, bgm: () => bgm ? bgm.current() : null },
 };
 };
 })();
