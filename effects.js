@@ -753,7 +753,7 @@ return {
   burst, stars, coins, ink, ring, streaks, rays, confetti, fireworks,
   banner, pop, toast, flash, shake, bump, stamp, countUp, setFever, drawFx, reset,
   moment, Muse, setVol, applyFx,
-  bgm: name => { if (bgm) bgm.play(name === 'practice' && feverOn ? 'fever' : name); }, setBgmVol: () => { if (bgm) bgm.setLevel(); if (ac) soundHint(); },
+  bgm: name => { if (bgm) bgm.play(name === 'practice' && feverOn ? 'fever' : name); }, bgmHold: on => { if (bgm) bgm.hold(on); }, setBgmVol: () => { if (bgm) bgm.setLevel(); if (ac) soundHint(); },
   debug: { particles: () => P.length, queued: () => queue.length + (showing ? 1 : 0), fever: () => feverOn, bgm: () => bgm ? bgm.current() : null },
 };
 };

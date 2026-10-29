@@ -29,7 +29,7 @@ SONGS.ta = Object.assign({}, SONGS.exam, { bpm: 150, transpose: 2, hot: true });
 // ac は AudioContext（本番）か OfflineAudioContext（検証）。level は 0〜1 の音量。
 function createBgm(ac, opt = {}) {
   const level = opt.level || (() => .2), live = () => !!ac && (opt.always || ac.state === 'running');
-  let out = null, duckG = null, songG = null, nb = null, timer = 0, cur = null, want = null, step = 0, nextT = 0;
+  let out = null, duckG = null, songG = null, nb = null, timer = 0, cur = null, want = null, step = 0, nextT = 0, held = false;
   function ensure() {
     if (out) return;
     out = ac.createGain(); out.gain.value = level(); duckG = ac.createGain(); duckG.gain.value = 1; out.connect(duckG); duckG.connect(ac.destination);
@@ -91,11 +91,16 @@ function createBgm(ac, opt = {}) {
     play(name) { if (!SONGS[name]) return; want = name; if (!timer && !opt.always) timer = setInterval(tick, 60); tick(); },
     stop() { want = null; },
     current: () => want,
+    // 読み上げの間はBGMを下げたままにする（途中のファンファーレの後も戻さない）。
+    hold(on) {
+      held = !!on; if (!duckG || !ac) return; const t = ac.currentTime, g = duckG.gain;
+      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(held ? .25 : 1, t + .25);
+    },
     setLevel() { if (out) out.gain.value = level(); if (level() <= 0) cur = null; },
     // ファンファーレの間だけ少し下げる。
     duck(to = .35, sec = 1.4) {
-      if (!duckG || !live()) return; const t = ac.currentTime, g = duckG.gain;
-      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(to, t + .06); g.setValueAtTime(to, t + sec); g.linearRampToValueAtTime(1, t + sec + .5);
+      if (!duckG || !live()) return; const t = ac.currentTime, g = duckG.gain, base = held ? .25 : 1; to = Math.min(to, base);
+      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(to, t + .06); g.setValueAtTime(to, t + sec); g.linearRampToValueAtTime(base, t + sec + .5);
     },
     // 検証用: 指定の曲を sec 秒分まとめて予約する（OfflineAudioContext 向け）。
     prime(name, sec) { if (!SONGS[name]) return; ensure(); begin(name, 0); const song = SONGS[name], spb = 60 / song.bpm / 4; while (nextT < sec) { schedule(song, step, nextT); step = (step + 1) % (song.chords.length * 16); nextT += spb; } },
