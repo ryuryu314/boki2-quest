@@ -240,11 +240,13 @@ body.lite .b-orb::after,body.lite .b-card.featured::after{animation:none;opacity
 @media(max-width:520px){.fx-judge b{width:120px;height:120px;font-size:84px}.fx-judge strong{font-size:36px}.fx-judge small{font-size:15px}}
 
 /* ===== 問題文の読み上げ（2026-10-30） ===== */
-.b-speak{display:flex;align-items:center;gap:12px;margin:-6px 0 14px}
+.b-speak{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:-6px 0 14px}
+/* 録音の声のクレジット（VOICEVOX:四国めたん）。ボタンのすぐ横に「VOICEVOX:」「四国めたん」の2行で置き、行の高さ（ボタンと同じ）を増やさない。幅が足りない端末では音量スライダーを先に縮め、それでも入らなければスライダーだけ次の行へ */
+.b-speakcredit{display:flex;flex-direction:column;font-size:11px;line-height:1.3;font-weight:700;letter-spacing:.01em;color:#5f6178;white-space:nowrap}
 .b-speakbtn{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:8px 16px;font-size:14px;background:#f4efff;border-color:#e1d7f5;color:var(--pur)}
 .b-speakbtn.on{background:var(--pur);color:#fff;border-color:var(--pur);animation:speakpulse 1.2s ease-in-out infinite}
 @keyframes speakpulse{50%{box-shadow:0 0 0 6px rgba(120,80,218,.18)}}
-.b-speakvol{width:110px;min-width:0;min-height:44px;padding:0;border:0;background:none;accent-color:var(--pur)}
+.b-speakvol{flex:1 1 64px;max-width:110px;min-width:0;min-height:44px;padding:0;border:0;background:none;accent-color:var(--pur)}
 .b-exam .b-speakbtn.on{animation:none}
 /* 長い声の名前（例: Microsoft Nanami Online (Natural) - Japanese (Japan)）でも設定の列が画面幅を超えないよう、列の最小幅を0にする */
 .b-settings{grid-template-columns:minmax(0,1fr)}
