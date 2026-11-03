@@ -1,5 +1,5 @@
 /* BGM: Web Audio でその場で合成するループ曲（音源ファイル・外部通信なし、iPhoneの消音モードに従う）。
-   画面ごとに曲を切り替え（メニュー・練習・フィーバー・60秒・模試）、ファンファーレ中は少し下げる。 */
+   画面ごとに曲を切り替え（メニュー・練習・フィーバー・模試）、ファンファーレ中は少し下げる。一時停止中は止める。 */
 (function () {
 'use strict';
 const midi = m => 440 * Math.pow(2, (m - 69) / 12);
@@ -24,7 +24,6 @@ const SONGS = {
       [[0, 77, 2], [3, 81, 1], [4, 84, 2], [6, 81, 2], [8, 77, 2], [10, 76, 2], [12, 72, 4]], [[0, 88, 2], [2, 86, 2], [4, 83, 2], [6, 80, 2], [8, 76, 8]]] },
 };
 SONGS.fever = Object.assign({}, SONGS.practice, { bpm: 140, transpose: 2, hot: true });
-SONGS.ta = Object.assign({}, SONGS.exam, { bpm: 150, transpose: 2, hot: true });
 
 // ac は AudioContext（本番）か OfflineAudioContext（検証）。level は 0〜1 の音量。
 function createBgm(ac, opt = {}) {
@@ -89,7 +88,13 @@ function createBgm(ac, opt = {}) {
   return {
     songs: Object.keys(SONGS),
     play(name) { if (!SONGS[name]) return; want = name; if (!timer && !opt.always) timer = setInterval(tick, 60); tick(); },
-    stop() { want = null; },
+    // すぐに小さくして止め、次に鳴らすときは曲の頭からフェードインする。
+    stop() {
+      want = null; cur = null; if (!songG) return;
+      const old = songG, t = ac.currentTime; songG = null;
+      old.gain.cancelScheduledValues(t); old.gain.setValueAtTime(old.gain.value, t); old.gain.linearRampToValueAtTime(.0001, t + .3);
+      setTimeout(() => { try { old.disconnect(); } catch (e) { /* 既に切断 */ } }, 700);
+    },
     current: () => want,
     // 読み上げの間はBGMを下げたままにする（途中のファンファーレの後も戻さない）。
     hold(on) {

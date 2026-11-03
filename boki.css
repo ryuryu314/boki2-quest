@@ -66,17 +66,6 @@ body.lite .b-qpanel{animation-duration:.15s}
 .b-combo[data-tier="3"]{color:#ff3d9a}
 .b-combo[data-tier="3"]::before{content:"🔥";font-style:normal;font-size:15px}
 .b-combo.bump b{animation:bump .32s cubic-bezier(.2,1.6,.4,1)}
-.b-speed{position:relative;height:5px;border-radius:9px;background:#ebe6f6;margin:-4px 0 22px}
-.b-speed i{position:absolute;inset:0;border-radius:9px;background:linear-gradient(90deg,#ffb300,#ff7a00);transform-origin:left center;animation:speedbar var(--spd,45s) linear var(--late,0s) both}
-.b-speed span{position:absolute;right:0;top:8px;font-size:10px;font-weight:900;letter-spacing:.14em;color:#e08600;animation:speedlbl var(--spd,45s) steps(1,end) var(--late,0s) both}
-.b-speed.paused i,.b-speed.paused span,.b-speed.done i,.b-speed.done span{animation-play-state:paused}
-.b-speed.done{opacity:.35}
-@keyframes speedbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
-@keyframes speedlbl{to{visibility:hidden}}
-.b-timer.ta{font-size:19px;color:#e08600}
-.b-timer.hurry{color:#e5304f;background:#fff0f3}
-.b-timer.beat{animation:beat .5s ease-out}
-@keyframes beat{from{transform:scale(1.35)}}
 .fx-xp{position:fixed;left:0;right:0;top:calc(8px + env(safe-area-inset-top));z-index:11;display:flex;justify-content:center;pointer-events:none;opacity:0;transition:opacity .25s}
 .fx-xp.show{opacity:1}
 .fx-xp-in{display:flex;align-items:center;gap:8px;width:min(300px,80vw);padding:7px 12px;border-radius:99px;background:rgba(255,255,255,.97);border:1px solid #e6dcf7;box-shadow:0 6px 24px rgba(60,30,120,.16);font-weight:900;font-size:13px;color:var(--ink);transform:translateY(-14px);transition:transform .3s cubic-bezier(.2,1.4,.4,1)}
@@ -260,3 +249,14 @@ body.lite .b-orb::after,body.lite .b-card.featured::after{animation:none;opacity
 /* 長い声の名前（例: Microsoft Nanami Online (Natural) - Japanese (Japan)）でも設定の列が画面幅を超えないよう、列の最小幅を0にする */
 .b-settings{grid-template-columns:minmax(0,1fr)}
 .b-setting select{min-width:0;text-overflow:ellipsis}
+
+/* ===== やさしい言い換え・メニュー（2026-11-03） ===== */
+/* 問題文の下に、小学生にもわかる言い換え。開閉は設定「開いておく」と共通。 */
+.b-easy{margin:12px 0 2px;border:1px solid #cfe8d4;background:#f2faf3;border-radius:14px;padding:0 14px}
+.b-easy summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;min-height:44px;font-size:14px;font-weight:800;color:#1d7340}
+.b-easy summary::-webkit-details-marker{display:none}
+.b-easy summary::after{content:"＋";margin-left:auto;font-weight:900;color:#3f9d61}
+.b-easy[open] summary::after{content:"－"}
+.b-easy p{margin:0 0 13px;font-size:15px;line-height:1.85;color:#20402b;user-select:text}
+/* 60秒チャレンジを外して5枚になったので、仕訳ドリルを2枠分にして空きマスを作らない。 */
+.b-cards .b-card.featured{grid-column:span 2}

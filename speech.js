@@ -69,5 +69,7 @@ window.createSpeech = function (S, hooks = {}) {
     voices: () => { if (!voices.length) read(); return voices.slice().sort((a, b) => (b.localService !== false) - (a.localService !== false) || score(b) - score(a)).map(v => ({ id: v.voiceURI || v.name, name: v.name, online: v.localService === false, female: FEMALE.test(v.name || '') && !MALE.test(v.name || '') })); },
   };
 };
-window.createSpeech.clean = clean; window.createSpeech.chunks = chunks; window.createSpeech.score = score;
+// 読み上げる文章: 問題文・表の指示・選択肢（番号つき）。録音（voice/*.mp3）もこの文章から作り、ずれはテストで検出する。
+const text = q => [q.q, ...(q.instructions || []), ...(q.type === 'choice' ? q.choices.map((c, i) => `${i + 1}、${c}`) : [])].join('\n');
+window.createSpeech.clean = clean; window.createSpeech.chunks = chunks; window.createSpeech.score = score; window.createSpeech.text = text;
 })();

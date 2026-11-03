@@ -183,7 +183,6 @@ function createSynth(ac, opt = {}) {
     complete() { [0, 7, 12].forEach((s, i) => tone(semi(1046.5, s), .09, 'sine', .07, i * .07, 0, { verb: .3 })); sparkle(3, .2, .025, 2093); },
     lampOn(i = 0) { kick(0, .18, 140, 60, .08); tone(semi(1318.5, PENTA[(i | 0) % 6]), .08, 'square', .04, .01, 0, { lp: 6000, verb: .15 }); },
     gameStart() { SFX.lever(); SFX.reelSpin(.9); [0, 4, 7, 12].forEach((s, i) => tone(semi(659.25, s), .08, 'square', .05, .95 + i * .05, 0, { lp: 6000, verb: .15 })); kick(.95, .25); },
-    alert() { [0, .16].forEach(w => { tone(1318.5, .1, 'square', .05, w, 0, { lp: 5000 }); tone(1760, .1, 'square', .035, w + .05, 0, { lp: 5000 }); }); },
     combo(n = 3, when = 0) {
       const b = semi(659.25, Math.min(12, Math.floor(n / 3) * 2));
       swish(when, .05, true, .16); kick(when + .12, .16);
@@ -222,13 +221,6 @@ function createSynth(ac, opt = {}) {
     balance() { bell(1046.5, 0, .06, .7, -.2); bell(1568, .07, .055, .8, .2); sparkle(4, .12, .022, 2093); },
     start() { [0, 4, 7, 12, 16, 19, 24].forEach((s, i) => tone(semi(392, s), .12, 'square', .075, i * .045, 0, { lp: 5400, pan: -.45 + i * .15, verb: .1 })); },
     questStart() { swish(0, .06, true, .26); SFX.start(); kick(.32, .24); crash(.32, .05, .7); },
-    ready() { tone(880, .11, 'square', .065, 0, 0, { lp: 4200 }); tone(880, .11, 'square', .065, .4, 0, { lp: 4200 }); },
-    go() { kick(0, .4); crash(0, .1, 1); tone(1760, .32, 'square', .06, 0, 0, { lp: 5200, verb: .2 }); brass([440, 554.37, 659.25, 880], 0, .4, .026); },
-    clock(hi) { tone(hi ? 1250 : 1000, .045, 'sine', .1, 0, 0, { attack: .001 }); noise(.015, .045, 0, { type: 'highpass', f: 4000 }); },
-    timeUp() {
-      [0, .14].forEach(w => { tone(587.33, .2, 'square', .07, w, 0, { lp: 2600 }); tone(739.99, .2, 'square', .05, w, 0, { lp: 2600 }); });
-      kick(.3, .4); crash(.3, .11, 1.4); tone(220, .9, 'triangle', .09, .3, .5, { verb: .3 });
-    },
     rank() { tone(80, .5, 'sawtooth', .12, 0, .4, { lp: 900 }); tone(160, .3, 'square', .08, 0, 0, { lp: 1300 }); kick(0, .45, 120, 35, .3); noise(.14, .1, 0, { type: 'lowpass', f: 1600 }); crash(0, .05, .9); },
     fanfare(r = 'A') {
       const big = r === 'S', seq = big ? [[0, 0, .14], [4, .14, .14], [7, .28, .14], [12, .42, .55]] : [[0, 0, .12], [7, .12, .12], [12, .24, .42]], hit = seq[seq.length - 1][1];
@@ -279,7 +271,7 @@ const level = () => (S.set.vol / 100) * .6, syn = createSynth(ac, { level }), SF
 const setVol = () => { syn.setLevel(level()); if (ac) soundHint(); };
 // BGM（bgm.js）。効果音とは別の音量で、大きなファンファーレの間だけ下げる。
 const bgmLevel = () => ((S.set.bgm ?? 40) / 100) * .25, bgm = window.createBgm ? window.createBgm(ac, { level: bgmLevel }) : null;
-const DUCK = new Set(['level', 'fever', 'crit', 'pass', 'bigBonus', 'premium', 'fanfare', 'record', 'daily', 'timeUp', 'go', 'freeze']);
+const DUCK = new Set(['level', 'fever', 'crit', 'pass', 'bigBonus', 'premium', 'fanfare', 'record', 'daily', 'freeze']);
 // iOS の古い版は無音バッファの再生を伴わないと解錠されないことがある。
 function audioUnlock() {
   if (!ac || ac.state === 'running') return;
@@ -555,14 +547,8 @@ const MISSBG = 'radial-gradient(ellipse at center, rgba(255,236,153,0) 40%, rgba
 const CHEERS = ['ドンマイ!', 'おしい!', '伸びしろ発見!', 'ナイスチャレンジ!', '次は取れる!', '覚えるチャンス!'];
 const pick = list => list[Math.random() * list.length | 0];
 const moment = {
-  // 練習の開始。60秒チャレンジは READY → GO。
-  start(mode) {
-    if (mode === 'ta') {
-      play('whoosh');
-      banner('READY', 'go', { keep: true, ms: 800, gap: 720, sfx: () => play('ready') });
-      banner('GO!!', 'go', { keep: true, ms: 900, sfx: () => play('go'), fx: () => { flash('rgba(41,163,240,.14)'); burst(W / 2, H * .42, '#29a3f0', 60, 12); ring(W / 2, H * .42, '#ffb300'); } });
-      return;
-    }
+  // 練習の開始。
+  start() {
     play('questStart');
     banner('QUEST START', 'go', { ms: 1000, fx: () => { burst(W / 2, H * .42, '#7c4dff', 46, 11); ring(W / 2, H * .42, '#ff3d9a'); stars(W / 2, H * .42, 10, 9); } });
   },
@@ -605,9 +591,6 @@ const moment = {
   // 借方・貸方の合計がそろった瞬間。
   balance(el) { play('balance'); if (!el) return; const { x, y } = center(el); stars(x, y, 10, 6, ['#2ecc71', '#ffb300', '#29a3f0']); pop('⚖ 貸借一致', x, y - 20, 'balance'); },
   memo(btn, existed) { play('memo'); haptic('light'); if (!btn) return; const { x, y } = center(btn); burst(x, y, '#7c4dff', 30, 8); ring(x, y, '#ff3d9a'); stars(x, y, 6, 6); pop(existed ? '上書き保存!' : '展示室へ!', x, y - 34, 'xp'); },
-  // 60秒チャレンジの残り10秒。
-  clock(sec, el) { play('clock', sec % 2 === 0); bump(el, 'beat'); if (sec <= 5) pop(String(sec), W / 2, H * .3, 'count big'); },
-  timeUp() { banner('TIME UP!', 'crit', { keep: true, ms: 1300, sfx: () => play('timeUp'), fx: () => { flash('rgba(255,179,0,.18)'); shake(app, true); } }); },
   // 練習の結果: ランクを叩きつけ、数字を回し、XPをレジで確定。
   result(o) {
     const T = calm() ? .35 : 1;
@@ -630,7 +613,6 @@ const moment = {
   examAnswered(el, n) { play('lampOn', n); if (!el) return; bump(el, 'lit'); const { x, y } = center(el); stars(x, y, 6, 5, ['#ffd93d', '#ff3d9a', '#6bcbff']); },
   sectionClear(name) { play('complete'); marquee('', 900); banner(`${escHtml(name)}<small>入力コンプリート!</small>`, 'slot small', { ms: 1100 }); },
   allAnswered(el) { play('chance'); marquee('win', 2000); if (el) el.classList.add('lit'); banner('ALL ANSWERED!<small>提出でボーナス判定</small>', 'slot', { keep: true, ms: 1500 }); },
-  examAlert(min) { play('alert'); banner(`残り${min}分<small>${min <= 5 ? 'ラストスパート!' : 'ペース配分チェック'}</small>`, 'slot small', { keep: true, ms: 1300 }); },
   // 模試の「次へ進む」: 今の問題の正誤を画面中央に一瞬だけ大きく出し、次の問題はすぐ表示する。
   examJudge(o) {
     judge(o.ok ? '◎' : o.part ? '△' : '✕', o.ok ? '正解!' : o.part ? '部分点!' : '不正解', o.ok || o.part ? '+' + o.got + '点' : pick(CHEERS), o.ok ? 'ok' : o.part ? 'part' : 'ng');
@@ -749,11 +731,11 @@ const Muse = {
 Muse.setLevel();
 
 return {
-  SFX: sfx, play, audioUnlock, haptic, reduced,
+  SFX: sfx, play, audioUnlock, haptic, reduced, audio: () => ac,
   burst, stars, coins, ink, ring, streaks, rays, confetti, fireworks,
   banner, pop, toast, flash, shake, bump, stamp, countUp, setFever, drawFx, reset,
   moment, Muse, setVol, applyFx,
-  bgm: name => { if (bgm) bgm.play(name === 'practice' && feverOn ? 'fever' : name); }, bgmHold: on => { if (bgm) bgm.hold(on); }, setBgmVol: () => { if (bgm) bgm.setLevel(); if (ac) soundHint(); },
+  bgm: name => { if (bgm) bgm.play(name === 'practice' && feverOn ? 'fever' : name); }, bgmStop: () => { if (bgm) bgm.stop(); }, bgmHold: on => { if (bgm) bgm.hold(on); }, setBgmVol: () => { if (bgm) bgm.setLevel(); if (ac) soundHint(); },
   debug: { particles: () => P.length, queued: () => queue.length + (showing ? 1 : 0), fever: () => feverOn, bgm: () => bgm ? bgm.current() : null },
 };
 };
