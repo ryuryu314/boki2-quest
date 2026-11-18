@@ -8,7 +8,7 @@
  const KEY='boki2DopaQuest.v1',EXAMKEY='boki2DopaQuest.exam.v1';
  const byId=Object.fromEntries(BK.Q.map(q=>[q.id,q]));
  const day=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
- const defaults=()=>({version:1,xp:0,total:0,correct:0,bestCombo:0,bestTA:0,q:{},days:{},goals:{},history:[],recent:[],set:{scope:'current',count:10,vol:45,fx:1,muse:true,museLv:0,memo:true,emph:false,rumble:true,examFx:true,easy:true,rec:true,bgm:40,tts:80,ttsRate:1,ttsVoice:'',examDate:'2026-10-29',method:'ネット試験',goal:20}});
+ const defaults=()=>({version:1,xp:0,total:0,correct:0,bestCombo:0,bestTA:0,q:{},days:{},goals:{},history:[],recent:[],set:{scope:'current',count:10,vol:45,fx:1,muse:true,museLv:0,memo:true,emph:false,rumble:true,examFx:true,easy:true,rec:true,calcDock:false,bgm:40,tts:80,ttsRate:1,ttsVoice:'',examDate:'2026-10-29',method:'ネット試験',goal:20}});
  let storageError=false;
  function getJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'null')??fallback;}catch{return fallback;}}
  function validateState(raw){
@@ -20,7 +20,7 @@
   d.history=(Array.isArray(raw.history)?raw.history:[]).filter(h=>h&&typeof h.name==='string'&&typeof h.at==='string'&&Number.isFinite(h.score)&&Number.isFinite(h.max)).slice(-100);
   d.recent=(Array.isArray(raw.recent)?raw.recent:[]).filter(a=>BK.accounts[a]).slice(0,12);
   const s=raw.set||{};d.set.scope=s.scope==='future'?'future':'current';
-  for(const k of ['memo','emph','rumble','muse','examFx','easy','rec'])if(typeof s[k]==='boolean')d.set[k]=s[k];
+  for(const k of ['memo','emph','rumble','muse','examFx','easy','rec','calcDock'])if(typeof s[k]==='boolean')d.set[k]=s[k];
   if([0,1].includes(s.fx))d.set.fx=s.fx;if(Number.isFinite(s.vol))d.set.vol=Math.max(0,Math.min(100,s.vol));if(Number.isFinite(s.bgm))d.set.bgm=Math.max(0,Math.min(100,s.bgm));if(Number.isFinite(s.tts))d.set.tts=Math.max(0,Math.min(100,s.tts));if([.9,1,1.15,1.3].includes(s.ttsRate))d.set.ttsRate=s.ttsRate;if(typeof s.ttsVoice==='string'&&s.ttsVoice.length<300)d.set.ttsVoice=s.ttsVoice;
   if([5,10,20,50].includes(s.count))d.set.count=s.count;if([10,20,30,50].includes(s.goal))d.set.goal=s.goal;
   if(/^\d{4}-\d{2}-\d{2}$/.test(s.examDate||''))d.set.examDate=s.examDate;
@@ -103,7 +103,7 @@
   if(!list.length){F.play('bump');F.toast(mode==='weak'?'苦手問題はまだありません。まず練習を始めましょう':'この範囲に問題はありません');return;}
   const qs=balanced(list,S.set.count);
   session={kind:'practice',mode,scope:S.set.scope,ids:qs.map(q=>q.id),index:0,answers:{},grades:{},combo:0,maxCombo:0,earned:0,correct:0,paused:false,started:new Date().toISOString(),xp0:S.xp,lv0:level().lv,best0:S.bestCombo};
-  F.reset(true);F.moment.start(mode);lastTick=idleAt=performance.now();renderQuiz();
+  openAnswers=new Set();F.reset(true);F.moment.start(mode);lastTick=idleAt=performance.now();renderQuiz();
  }
  const modeLabel=()=>session?.kind==='exam'?examSet().name:({drill:'仕訳ドリル',theory:'一問一答',weak:'苦手克服',mixed:'全分野',topic:'論点別'}[session?.mode]||'論点別');
  const qNow=()=>byId[session.ids[session.index]];
@@ -139,8 +139,8 @@
    <div class="b-quizlayout"><section class="b-panel b-qpanel muse-avoid"><p class="b-qtag">${esc(node.name)} · ${q.type==='journal'?'仕訳':q.type==='calc'?'数値':q.type==='grid'?'表の穴埋め':q.type==='tf'?'○×':'選択'} · ${'◆'.repeat(q.diff)}</p><h1 class="b-qtitle">${esc(BK.TITLES[q.id])}</h1>${T?.supported||V?.has(q.id)?`<div class="b-speak">${button('🔊 読み上げ','speak','b-speakbtn','aria-pressed="false"')}${S.set.rec&&V?.has(q.id)?creditTag():''}<input class="b-speakvol" type="range" data-setting="tts" min="0" max="100" value="${S.set.tts}" aria-label="読み上げの音量"></div>`:''}<p class="b-qtext">${esc(q.q)}</p>${BK.EASY?.[q.id]?`<details class="b-easy"${S.set.easy?' open':''}><summary>🔰 かんたんに言うと</summary><p>${esc(BK.EASY[q.id])}</p></details>`:''}
    ${q.sourceTable?table(q.sourceTable):''}${q.instructions?`<ul class="b-instructions">${q.instructions.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}<div class="b-divider"></div><div id="answer-area"></div><div id="feedback-area"></div>
    <div class="b-actions b-answer-controls">${exam?`${button('← 前へ','prev','',session.index===0?'disabled':'')}${button(session.flags.includes(q.id)?'⚑ 見直し済み':'⚑ あとで見直す','flag')}${button(session.index===session.ids.length-1?'提出する':'次へ進む →',session.index===session.ids.length-1?'submitExam':'nextExam','b-primary')}`:button(grade?'次へ →':'答え合わせ',grade?'next':'grade','b-primary')}</div><div class="b-actions b-study-tools">${button('▦ 電卓を開く','calculator')}${button('解答を見る','revealAnswer')}</div></section>
-   <aside class="b-memoaside"><div class="b-panel"><h3>計算用紙</h3>${S.set.memo?'<div id="memo-host"></div>':'<p class="b-muted">設定からメモ帳を有効にできます。</p>'}<p class="b-mini-note">紙の中は指で描く。スクロールは紙の外で。<br>移動時に自動保存します。</p></div>${!exam?`<p class="b-muse-lines">${q.p.map(esc).join('<br>')}</p>`:''}</aside></div>${exam?lastJudgeCard():''}`,exam?'b-exam':'');
-  renderAnswer();
+   <div class="b-dock" id="dock"></div><aside class="b-memoaside"><div class="b-panel"><h3>計算用紙</h3>${S.set.memo?'<div id="memo-host"></div>':'<p class="b-muted">設定からメモ帳を有効にできます。</p>'}<p class="b-mini-note">紙の中は指で描く。スクロールは紙の外で。<br>移動時に自動保存します。</p></div>${!exam?`<p class="b-muse-lines">${q.p.map(esc).join('<br>')}</p>`:''}</aside></div>${exam?lastJudgeCard():''}`,exam?'b-exam':'');
+  renderAnswer();renderDock();
   if(S.set.memo){memo=BK.memo.create($('#memo-host'),{question:{...q,e:q.exp},toast:F.toast,onSaved:(rec,existed,btn)=>{if(exam&&session?.kind==='exam'){session.memoIds??=[];if(!session.memoIds.includes(q.id))session.memoIds.push(q.id);persistExam();}else if(!exam)F.moment.memo(btn,existed);}});memo.setAnswered(!!grade);if(exam&&session.memoIds?.includes(q.id))memo.openSaved();}
   if(grade)renderFeedback(grade);else if(!exam)F.Muse.start(q.p,'#8c78b4',{delay:4000});
   if(!exam)F.setFever(session.combo>=10);else session.lastJudge=null;
@@ -192,10 +192,28 @@
   if(q.type==='tf')return q.ans?'○ 正しい':'× 誤り';if(q.type==='choice')return q.ans.map(i=>`${i+1}. ${q.choices[i]}`).join('\n');
   return q.parts.map(p=>p.label+': '+(p.kind==='account'?p.ans:fmt(p.ans))+' '+(p.unit||'')).join('\n');
  }
+ // 解答の中身（シートと、PCで問題と計算用紙の間に置く解答板で共通）。
+ const answerBody=q=>`<pre class="b-answer-key b-solution">${esc(answerText(q))}</pre><pre class="b-solution">${esc(q.exp)}</pre><p class="b-mini-note"><b>もし忘れたら</b><br>${esc(BK.WHATIF[q.id])}</p>`;
  function revealAnswer(){
-  if(!session||session.paused)return;const q=qNow();session.revealed??=[];if(!session.revealed.includes(q.id))session.revealed.push(q.id);persistExam();
-  openModal('解答です',`<pre class="b-answer-key b-solution">${esc(answerText(q))}</pre><pre class="b-solution">${esc(q.exp)}</pre><p class="b-mini-note"><b>もし忘れたら</b><br>${esc(BK.WHATIF[q.id])}</p><div class="b-actions">${button('問題に戻る','closeModal','b-primary')}</div>`);
+  if(!session||session.paused)return;const q=qNow();
+  if(docking()&&openAnswers.has(q.id)){openAnswers.delete(q.id);renderDock();return;}
+  session.revealed??=[];if(!session.revealed.includes(q.id))session.revealed.push(q.id);persistExam();
+  if(docking()){openAnswers.add(q.id);renderDock();return;}
+  openModal('解答です',`${answerBody(q)}<div class="b-actions">${button('問題に戻る','closeModal','b-primary')}</div>`);
  }
+ // PC（幅801px以上）では、解答と電卓をシートで重ねず、問題と計算用紙の間の列に置いたまま表示する（スマホ幅は従来どおりシート）。
+ // 解答は開いた問題で（ほかの問題へ移ると隠れ、戻ると再び表示）、電卓は閉じるまでどの問題でも（設定に保存）。
+ const wideMQ=matchMedia('(min-width:801px)'),docking=()=>wideMQ.matches;
+ let openAnswers=new Set();
+ function renderDock(){
+  const dock=$('#dock');if(!dock||!session)return;const q=qNow(),ans=docking()&&openAnswers.has(q.id),cal=docking()&&S.set.calcDock;
+  dock.innerHTML=(cal?`<section class="b-panel b-dockpanel b-calcdock" tabindex="-1" aria-labelledby="dock-calc-title"><header class="b-sheethead"><h2 id="dock-calc-title">電卓</h2>${button('×','closeCalc','','aria-label="電卓を閉じる"')}</header>${calcPad()}<p class="b-mini-note">入力した順に計算。%は表示値÷100。電卓を押せば数字キーでも打てます。</p></section>`:'')
+   +(ans?`<section class="b-panel b-dockpanel b-answerdock" aria-labelledby="dock-answer-title"><header class="b-sheethead"><h2 id="dock-answer-title">解答です</h2>${button('×','closeAnswer','','aria-label="解答を閉じる"')}</header>${answerBody(q)}</section>`:'');
+  $('.b-quizlayout')?.classList.toggle('docked',ans||cal);$('.b-wrap')?.classList.toggle('docked',ans||cal);
+  const a=$('.b-study-tools [data-action="revealAnswer"]'),c=$('.b-study-tools [data-action="calculator"]');
+  if(a)a.textContent=ans?'解答を閉じる':'解答を見る';if(c)c.textContent=cal?'▦ 電卓を閉じる':'▦ 電卓を開く';
+ }
+ wideMQ.addEventListener?.('change',()=>{if(screen==='quiz'&&session)renderDock();});
  function renderFeedback(g,ev){const q=qNow(),c=ev?.combo||0,praise=g.correct&&!ev?.assisted&&c>=3?`<p class="b-praise">${c>=10?'神正解!!!':c>=5?'連続正解!!':'いい流れ!'} ${c} COMBO</p>`:'',chips=ev?.chips?.length?`<div class="b-chips">${ev.chips.map(([t,cls],i)=>`<span class="${cls}" style="animation-delay:${(.3+i*.08).toFixed(2)}s">${esc(t)}</span>`).join('')}</div>`:'';$('#feedback-area').innerHTML=`<div class="b-feedback ${g.correct?'':'wrong'}"><h3>${g.correct?'✓ 正解！':'おしい！ ここが伸びしろ'}</h3>${praise}${chips}<div class="b-checks">${g.checks.map(c=>`<span class="${c.ok?'b-correct':'b-wrong'}">${c.ok?'✓':'×'} ${esc(c.label)}</span>`).join('')}</div><pre class="b-answer-key">${esc(answerText(q))}</pre><pre>${esc(q.exp)}</pre><p class="b-mini-note"><b>もし忘れたら</b><br>${esc(BK.WHATIF[q.id])}</p></div>`;memo?.setAnswered(true);}
  // 正誤を記録し、演出用の結果（XPの内訳・コンボ・レベルの変化）を返す。XPの計算式は従来どおり。
  function record(q,g,game=true){
@@ -247,9 +265,9 @@
    if(set.code===previous)set=BK.examFactory.generate(S.set.scope,(seed+1)>>>0);
   }else set=BK.examFactory.legacy(id);
   if(!set)return;if(set.code)store('boki2DopaQuest.lastExamCode',set.code);
-  session={kind:'exam',setId:set.id,exam:set.format?set:undefined,scope:set.scope,ids:set.sections.flatMap(s=>s.items.map(i=>i.id)),answers:{},revealed:[],index:0,elapsed:0,paused:false,interrupted:false,started:new Date().toISOString(),flags:[],memoIds:[],fxDone:[]};lastTick=idleAt=performance.now();persistExam();F.reset(true);if(S.set.examFx)F.moment.examStart();else F.play('start');renderQuiz();
+  session={kind:'exam',setId:set.id,exam:set.format?set:undefined,scope:set.scope,ids:set.sections.flatMap(s=>s.items.map(i=>i.id)),answers:{},revealed:[],index:0,elapsed:0,paused:false,interrupted:false,started:new Date().toISOString(),flags:[],memoIds:[],fxDone:[]};openAnswers=new Set();lastTick=idleAt=performance.now();persistExam();F.reset(true);if(S.set.examFx)F.moment.examStart();else F.play('start');renderQuiz();
  }
- function resumeExam(){if(!savedExam)return;session=validExam(savedExam);if(!session){savedExam=null;F.toast('中断データを読み込めませんでした');go('mocks');return;}session.paused=false;session.interrupted=true;session.fxDone=session.ids.filter(id=>complete(byId[id],session.answers[id]));lastTick=idleAt=performance.now();renderQuiz();}
+ function resumeExam(){if(!savedExam)return;session=validExam(savedExam);if(!session){savedExam=null;F.toast('中断データを読み込めませんでした');go('mocks');return;}session.paused=false;session.interrupted=true;session.fxDone=session.ids.filter(id=>complete(byId[id],session.answers[id]));openAnswers=new Set();lastTick=idleAt=performance.now();renderQuiz();}
  function jump(i){session.index=Math.max(0,Math.min(session.ids.length-1,i));persistExam();renderQuiz();}
  function finishExam(){
   closeModal();const set=examSet(),result=E.examScore(set,session.answers),xp0=S.xp;result.lv0=level().lv;
@@ -304,11 +322,21 @@
   modal.numberKey=k=>{if(k==='C')value='';else if(k==='⌫')value=value.slice(0,-1);else if(k==='±')value=value.startsWith('-')?value.slice(1):'-'+(value||'0');else if(k==='.') {if(!value.includes('.'))value=(value||'0')+'.';}else if(value.replace(/[-.]/g,'').length+k.length<=12)value=(value==='0'?'':value)+k;$('#number-display').textContent=value===''?'0':value==='-'||value.endsWith('.')?value:fmt(Number(value));if(session?.kind==='practice')F.bump($('#number-display'));};
   modal.numberDone=()=>{if(value!==''&&E.number(value)===null){F.toast('数値を入力してください');return;}if(journal)a[side][+idx][1]=value;else a[+key]=value;closeModal();renderAnswer();updateAnswer();};
  }
+ // 電卓。表示と途中の計算は、PCで置いたままの電卓では問題を移っても保つ（スマホ幅のシートは開くたびに0から）。
+ const calc={value:'0',stored:null,operator:null,fresh:true};
+ const calcPad=()=>`<div class="b-numdisplay" id="calc-display">${esc(calc.value)}</div><div class="b-keypad calc">${['C','±','%','÷','7','8','9','×','4','5','6','−','1','2','3','+','0','00','.','='].map(k=>button(k,'calc:'+k,/^[0-9.]$/.test(k)?'':'subkey')).join('')}</div>`;
+ function calcApply(){const n=Number(calc.value);if(calc.stored!==null&&calc.operator){const o=calc.operator,s=calc.stored;calc.value=String(o==='+'?s+n:o==='−'?s-n:o==='×'?s*n:n===0?NaN:s/n);if(!Number.isFinite(Number(calc.value)))calc.value='エラー';else calc.value=String(Number(Number(calc.value).toPrecision(12)));}calc.operator=null;calc.stored=null;}
+ function calcKey(k){
+  if(k==='C')Object.assign(calc,{value:'0',stored:null,operator:null,fresh:true});
+  else if(['+','−','×','÷'].includes(k)){if(!calc.fresh)calcApply();if(calc.value!=='エラー'){calc.stored=Number(calc.value);calc.operator=k;calc.fresh=true;}}
+  else if(k==='='){calcApply();calc.fresh=true;}else if(k==='±')calc.value=String(-Number(calc.value));else if(k==='%')calc.value=String(Number(calc.value)/100);
+  else if(calc.fresh||calc.value==='エラー'){calc.value=k==='.'?'0.':k;calc.fresh=false;}else if(k==='.'&&!calc.value.includes('.'))calc.value+='.';else if(k!=='.'&&calc.value.length<14)calc.value=(calc.value==='0'?'':calc.value)+k;
+  const d=$('#calc-display');if(d)d.textContent=calc.value;
+ }
  function calculator(){
-  let value='0',stored=null,operator=null,fresh=true;
-  openModal('電卓',`<div class="b-numdisplay" id="calc-display">0</div><div class="b-keypad calc">${['C','±','%','÷','7','8','9','×','4','5','6','−','1','2','3','+','0','00','.','='].map(k=>button(k,'calc:'+k,/^[0-9.]$/.test(k)?'':'subkey')).join('')}</div><p class="b-mini-note">四則演算は入力した順に計算。%は表示値を100で割ります。</p>`);
-  const apply=()=>{const n=Number(value);if(stored!==null&&operator){value=String(operator==='+'?stored+n:operator==='−'?stored-n:operator==='×'?stored*n:n===0?NaN:stored/n);if(!Number.isFinite(Number(value)))value='エラー';else value=String(Number(Number(value).toPrecision(12)));}operator=null;stored=null;};
-  modal.calcKey=k=>{if(k==='C'){value='0';stored=null;operator=null;fresh=true;}else if(['+','−','×','÷'].includes(k)){if(!fresh)apply();if(value!=='エラー'){stored=Number(value);operator=k;fresh=true;}}else if(k==='='){apply();fresh=true;}else if(k==='±'){value=String(-Number(value));}else if(k==='%'){value=String(Number(value)/100);}else{if(fresh||value==='エラー'){value=k==='.'?'0.':k;fresh=false;}else if(k==='.'&&!value.includes('.'))value+='.';else if(k!=='.'&&value.length<14)value=(value==='0'?'':value)+k;}$('#calc-display').textContent=value;};
+  if(docking()){S.set.calcDock=!S.set.calcDock;save();renderDock();if(S.set.calcDock)$('.b-calcdock')?.focus({preventScroll:true});return;}
+  Object.assign(calc,{value:'0',stored:null,operator:null,fresh:true});
+  openModal('電卓',`${calcPad()}<p class="b-mini-note">四則演算は入力した順に計算。%は表示値を100で割ります。</p>`);modal.calcKey=calcKey;
  }
  function backup(){const data={app:'boki2DopaQuest',version:1,exportedAt:new Date().toISOString(),state:S,memos:getJSON('boki2DopaQuest.memos.v1',{items:{}}),memoTools:getJSON('boki2DopaQuest.memoTools.v1',{}),exam:savedExam};return JSON.stringify(data,null,2);}
  function exportRecords(){const text=backup();openModal('記録を書き出す',`<p class="b-muted">JSONをファイル保存するか、コピーして保管してください。</p><textarea id="backup-text" aria-label="バックアップJSON" readonly></textarea><div class="b-actions">${button('ファイル保存','downloadBackup','b-primary')}${button('コピー','copyBackup')}${button('共有','shareBackup')}</div>`);$('#backup-text').value=text;modal.backup=text;}
@@ -338,7 +366,7 @@
   const [act,...args]=raw.split(':'),arg=args.join(':');
   if(act==='closeModal'){closeModal();return;}
   if(act==='sfx'){F.moment.preview(arg,el);return;}
-  if(act==='accountTab'){modal?.accountTab(arg);return;}if(act==='selectAccount'){modal?.accountChoose(arg);return;}if(act==='num'){modal?.numberKey(arg);return;}if(act==='numberDone'){modal?.numberDone();return;}if(act==='calc'){modal?.calcKey(arg);return;}
+  if(act==='accountTab'){modal?.accountTab(arg);return;}if(act==='selectAccount'){modal?.accountChoose(arg);return;}if(act==='num'){modal?.numberKey(arg);return;}if(act==='numberDone'){modal?.numberDone();return;}if(act==='calc'){calcKey(arg);return;}
   if(act==='continue'){closeModal(false);resumeClock();return;}
   if(act==='leaveSession'){closeModal(false);if(session.kind==='exam')persistExam();session=null;go('menu');return;}
   if(act==='home'){if(session){pause();return;}go('menu');return;}
@@ -351,6 +379,7 @@
   if(['drill','theory','weak','mixed'].includes(act)){startPractice(act);return;}
   if(act==='help'){help();return;}
   if(act==='speak'){if(!session)return;if(T?.speaking()||V?.speaking())hush();else readAloud(qNow());return;}if(act==='calculator'){calculator();return;}if(act==='revealAnswer'){revealAnswer();return;}
+  if(act==='closeCalc'){S.set.calcDock=false;save();renderDock();return;}if(act==='closeAnswer'){if(session)openAnswers.delete(qNow().id);renderDock();return;}
   if(act==='grade'){grade();return;}if(act==='next'){next();return;}
   if(act==='pause'){pause();return;}
   if(act==='replayExam'){try{startExam('random',$('#exam-code').value);}catch(e){$('#exam-code-error').textContent=e.message;}return;}
@@ -392,7 +421,7 @@
   if(fun&&(act==='tf'||act==='choice')){F.play('select',arg==='false'?1:+arg||0);return;}
   if(fun&&['selectAccount','add','remove'].includes(act)){F.play({selectAccount:'pick',add:'add',remove:'remove'}[act]);return;}
   const name=control.matches('[data-number],.memo button')||['num','calc','accountTab'].includes(act)?'tick':
-   ['closeModal','home','categoryUp','pause','leaveSession','prev'].includes(act)?'back':
+   ['closeModal','home','categoryUp','pause','leaveSession','prev','closeAnswer','closeCalc'].includes(act)?'back':
    ['jump','section','tf','choice','selectAccount'].includes(act)?'move':'ok';
   F.play(name);
  },true);
@@ -407,6 +436,8 @@
    if(modal.numberKey){if(/^\d$/.test(e.key)||e.key==='.'||e.key==='Backspace'||e.key==='Delete'||e.key==='-'){e.preventDefault();F.play('tick');modal.numberKey(e.key==='Backspace'?'⌫':e.key==='Delete'?'C':e.key==='-'?'±':e.key);}else if(e.key==='Enter'){e.preventDefault();F.play('ok');modal.numberDone();}return;}
    if(modal.calcKey){const map={'Enter':'=','*':'×','/':'÷','-':'−','Backspace':'C'};if(/^[0-9.+%]$/.test(e.key)||map[e.key]){e.preventDefault();F.play('tick');modal.calcKey(map[e.key]||e.key);}return;}
   }else if(e.key==='Escape'&&session){e.preventDefault();F.play('back');pause();}
+  // PCで置いたままの電卓は、電卓を押したあと（電卓の中にフォーカスがあるとき）キーボードでも打てる。
+  else if(e.target.closest?.('.b-calcdock')&&!e.ctrlKey&&!e.metaKey&&!e.altKey){const map={'Enter':'=','*':'×','/':'÷','-':'−','Backspace':'C'};if(/^[0-9.+%]$/.test(e.key)||map[e.key]){e.preventDefault();F.play('tick');calcKey(map[e.key]||e.key);}}
   else if(e.target.matches('[data-number]')&&(e.key==='Enter'||/^\d$/.test(e.key))){e.preventDefault();F.play('tick');numberSheet(e.target.dataset.number);if(/^\d$/.test(e.key))modal.numberKey(e.key);}
  });
  document.addEventListener('pointerdown',e=>{document.body.dataset.input=e.pointerType==='touch'||e.pointerType==='pen'?'touch':'kb';F.audioUnlock();});
