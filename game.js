@@ -8,7 +8,7 @@
  const KEY='boki2DopaQuest.v1',EXAMKEY='boki2DopaQuest.exam.v1';
  const byId=Object.fromEntries(BK.Q.map(q=>[q.id,q]));
  const day=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
- const defaults=()=>({version:1,xp:0,total:0,correct:0,bestCombo:0,bestTA:0,q:{},days:{},goals:{},history:[],recent:[],set:{scope:'current',count:10,vol:45,fx:1,muse:true,museLv:0,memo:true,emph:false,rumble:true,examFx:true,easy:true,rec:true,calcDock:false,bgm:40,tts:80,ttsRate:1,ttsVoice:'',examDate:'2026-10-29',method:'ネット試験',goal:20}});
+ const defaults=()=>({version:1,xp:0,total:0,correct:0,bestCombo:0,bestTA:0,q:{},days:{},goals:{},history:[],recent:[],set:{scope:'current',count:10,vol:45,fx:1,muse:true,museLv:0,memo:true,emph:false,rumble:true,examFx:true,easy:true,rec:true,bgm:40,tts:80,ttsRate:1,ttsVoice:'',examDate:'2026-10-29',method:'ネット試験',goal:20}});
  let storageError=false;
  function getJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'null')??fallback;}catch{return fallback;}}
  function validateState(raw){
@@ -20,7 +20,7 @@
   d.history=(Array.isArray(raw.history)?raw.history:[]).filter(h=>h&&typeof h.name==='string'&&typeof h.at==='string'&&Number.isFinite(h.score)&&Number.isFinite(h.max)).slice(-100);
   d.recent=(Array.isArray(raw.recent)?raw.recent:[]).filter(a=>BK.accounts[a]).slice(0,12);
   const s=raw.set||{};d.set.scope=s.scope==='future'?'future':'current';
-  for(const k of ['memo','emph','rumble','muse','examFx','easy','rec','calcDock'])if(typeof s[k]==='boolean')d.set[k]=s[k];
+  for(const k of ['memo','emph','rumble','muse','examFx','easy','rec'])if(typeof s[k]==='boolean')d.set[k]=s[k];
   if([0,1].includes(s.fx))d.set.fx=s.fx;if(Number.isFinite(s.vol))d.set.vol=Math.max(0,Math.min(100,s.vol));if(Number.isFinite(s.bgm))d.set.bgm=Math.max(0,Math.min(100,s.bgm));if(Number.isFinite(s.tts))d.set.tts=Math.max(0,Math.min(100,s.tts));if([.9,1,1.15,1.3].includes(s.ttsRate))d.set.ttsRate=s.ttsRate;if(typeof s.ttsVoice==='string'&&s.ttsVoice.length<300)d.set.ttsVoice=s.ttsVoice;
   if([5,10,20,50].includes(s.count))d.set.count=s.count;if([10,20,30,50].includes(s.goal))d.set.goal=s.goal;
   if(/^\d{4}-\d{2}-\d{2}$/.test(s.examDate||''))d.set.examDate=s.examDate;
@@ -183,7 +183,7 @@
   else if(q.type==='choice')html=`<p class="b-muted" style="margin-bottom:12px">${q.ans.length>1?'当てはまるものをすべて選択':'一つ選択'}</p><div class="b-choices">${q.choices.map((c,i)=>button(`<b>${i+1}</b><span>${esc(c)}</span>`,'choice:'+i,'b-choice'+(a.includes(i)?' selected':'')+(S.set.emph&&session.kind!=='exam'&&q.ans.includes(i)?' emph':''),locked?'disabled':'')).join('')}</div>`;
   else if(q.type==='grid')html=`<p class="b-muted">表の空欄をタップして入力。横に長い表は表内でスクロールできます。</p><div class="b-scrolltable"><table class="b-table"><thead><tr><th>項目</th><th>解答</th><th>単位</th></tr></thead><tbody>${q.parts.map((p,i)=>`<tr><td>${esc(p.label)}</td><td>${p.kind==='account'?button(esc(a[i]||'科目を選択'),'partAccount:'+i,'',locked?'disabled':''):amount(a[i],String(i),p.label,locked)}</td><td>${esc(p.unit||'')}</td></tr>`).join('')}</tbody></table></div>`;
   else html=`<div class="b-fields">${q.parts.map((p,i)=>`<label class="b-field"><span>${esc(p.label)}</span>${amount(a[i],String(i),p.label,locked)}<span>${esc(p.unit)}</span></label>`).join('')}</div>`;
-  $('#answer-area').innerHTML=html;fresh='';
+  $('#answer-area').innerHTML=html;fresh='';markNum();
   // 借方と貸方の合計がそろった瞬間を、練習では音と星で知らせる（模試は合計の色だけ）。
   if(q.type==='journal'&&!locked){if(balanced&&session.balanced!==q.id){session.balanced=q.id;if(session.kind==='practice')F.moment.balance($('.b-entry'));}else if(!balanced&&session.balanced===q.id)session.balanced=null;}
  }
@@ -201,17 +201,17 @@
   if(docking()){openAnswers.add(q.id);renderDock();return;}
   openModal('解答です',`${answerBody(q)}<div class="b-actions">${button('問題に戻る','closeModal','b-primary')}</div>`);
  }
- // PC（幅801px以上）では、解答と電卓をシートで重ねず、問題と計算用紙の間の列に置いたまま表示する（スマホ幅は従来どおりシート）。
- // 解答は開いた問題で（ほかの問題へ移ると隠れ、戻ると再び表示）、電卓は閉じるまでどの問題でも（設定に保存）。
+ // PC（幅801px以上）では、金額を入れるテンキーと解答を、シートで重ねず問題と計算用紙の間の列に置いたまま表示する（スマホ幅は従来どおりシート）。
+ // テンキーは金額を入れる問題でいつも表示し、金額欄を押すとその欄を入力する。解答は開いた問題で（ほかの問題へ移ると隠れ、戻ると再び表示）。
  const wideMQ=matchMedia('(min-width:801px)'),docking=()=>wideMQ.matches;
  let openAnswers=new Set();
  function renderDock(){
-  const dock=$('#dock');if(!dock||!session)return;const q=qNow(),ans=docking()&&openAnswers.has(q.id),cal=docking()&&S.set.calcDock;
-  dock.innerHTML=(cal?`<section class="b-panel b-dockpanel b-calcdock" tabindex="-1" aria-labelledby="dock-calc-title"><header class="b-sheethead"><h2 id="dock-calc-title">電卓</h2>${button('×','closeCalc','','aria-label="電卓を閉じる"')}</header>${calcPad()}<p class="b-mini-note">入力した順に計算。%は表示値÷100。電卓を押せば数字キーでも打てます。</p></section>`:'')
+  const dock=$('#dock');if(!dock||!session)return;const q=qNow(),ans=docking()&&openAnswers.has(q.id),num=docking()&&hasAmounts(q);
+  dock.innerHTML=(num?numPanel(q):'')
    +(ans?`<section class="b-panel b-dockpanel b-answerdock" aria-labelledby="dock-answer-title"><header class="b-sheethead"><h2 id="dock-answer-title">解答です</h2>${button('×','closeAnswer','','aria-label="解答を閉じる"')}</header>${answerBody(q)}</section>`:'');
-  $('.b-quizlayout')?.classList.toggle('docked',ans||cal);$('.b-wrap')?.classList.toggle('docked',ans||cal);
-  const a=$('.b-study-tools [data-action="revealAnswer"]'),c=$('.b-study-tools [data-action="calculator"]');
-  if(a)a.textContent=ans?'解答を閉じる':'解答を見る';if(c)c.textContent=cal?'▦ 電卓を閉じる':'▦ 電卓を開く';
+  $('.b-quizlayout')?.classList.toggle('docked',ans||num);$('.b-wrap')?.classList.toggle('docked',ans||num);
+  const a=$('.b-study-tools [data-action="revealAnswer"]');if(a)a.textContent=ans?'解答を閉じる':'解答を見る';
+  markNum();
  }
  wideMQ.addEventListener?.('change',()=>{if(screen==='quiz'&&session)renderDock();});
  function renderFeedback(g,ev){const q=qNow(),c=ev?.combo||0,praise=g.correct&&!ev?.assisted&&c>=3?`<p class="b-praise">${c>=10?'神正解!!!':c>=5?'連続正解!!':'いい流れ!'} ${c} COMBO</p>`:'',chips=ev?.chips?.length?`<div class="b-chips">${ev.chips.map(([t,cls],i)=>`<span class="${cls}" style="animation-delay:${(.3+i*.08).toFixed(2)}s">${esc(t)}</span>`).join('')}</div>`:'';$('#feedback-area').innerHTML=`<div class="b-feedback ${g.correct?'':'wrong'}"><h3>${g.correct?'✓ 正解！':'おしい！ ここが伸びしろ'}</h3>${praise}${chips}<div class="b-checks">${g.checks.map(c=>`<span class="${c.ok?'b-correct':'b-wrong'}">${c.ok?'✓':'×'} ${esc(c.label)}</span>`).join('')}</div><pre class="b-answer-key">${esc(answerText(q))}</pre><pre>${esc(q.exp)}</pre><p class="b-mini-note"><b>もし忘れたら</b><br>${esc(BK.WHATIF[q.id])}</p></div>`;memo?.setAnswered(true);}
@@ -315,14 +315,47 @@
   modal.accountTab=id=>{tab=id;$$('[data-action^="accountTab:"]').forEach(b=>b.classList.toggle('on',b.dataset.action==='accountTab:'+id));draw();};
   $('#account-search').addEventListener('input',e=>{search=e.target.value.normalize('NFKC');draw();});draw();
  }
+ // テンキーのキー1つ分の編集と表示（シートと、PCで問題の隣に置いたテンキーで共通）。
+ const numPad=(off=false)=>`<div class="b-keypad">${['7','8','9','4','5','6','1','2','3','±','0','000','C','.','⌫'].map(k=>button(k,'num:'+k,['C','⌫','±','.'].includes(k)?'subkey':'',off?'disabled':'')).join('')}</div>`;
+ function numEdit(v,k){if(k==='C')return '';if(k==='⌫')return v.slice(0,-1);if(k==='±')return v.startsWith('-')?v.slice(1):'-'+(v||'0');if(k==='.')return v.includes('.')?v:(v||'0')+'.';return v.replace(/[-.]/g,'').length+k.length<=12?(v==='0'?'':v)+k:v;}
+ const numShow=v=>v===''?'0':v==='-'||v.endsWith('.')?v:fmt(Number(v));
+ // PCで問題の隣に置くテンキー。金額欄を押すとその欄を選び、キーを押すたびに欄へ入れる（Enter・「次の欄へ」で次の金額欄）。
+ let numActive=null,numActiveQ=null;
+ const hasAmounts=q=>q.type==='journal'||q.type==='calc'||q.type==='grid'&&q.parts.some(p=>p.kind!=='account');
+ const numValue=(q,key)=>{const a=answerFor(q),[side,idx]=key.split(':');return String((q.type==='journal'?a[side]?.[+idx]?.[1]:a[+key])??'');};
+ const numLabel=(q,key)=>{const [side,idx]=key.split(':');return q.type==='journal'?`${side==='dr'?'借方':'貸方'}${+idx+1}行目の金額`:q.parts[+key].label;};
+ const numOk=q=>numActive!==null&&numActiveQ===q.id&&!session.grades?.[q.id]&&(q.type==='journal'?!!answerFor(q)[numActive.split(':')[0]]?.[+numActive.split(':')[1]]:!!q.parts[+numActive]&&q.parts[+numActive].kind!=='account');
+ function numPanel(q){
+  const on=numOk(q),locked=!!session.grades?.[q.id],v=on?numValue(q,numActive):'';
+  return `<section class="b-panel b-dockpanel b-numdock" aria-labelledby="dock-num-title"><header class="b-sheethead"><h2 id="dock-num-title">テンキー</h2></header><p class="b-numfor" id="num-for">${on?esc(numLabel(q,numActive)):locked?'答え合わせ済みの問題です':'金額欄を押すと、ここで入力できます'}</p><div class="b-numdisplay" id="number-display">${esc(numShow(v))}</div>${numPad(!on)}<div class="b-actions">${button('次の欄へ ↵','numberNext','b-primary',on?'':'disabled')}</div><p class="b-mini-note">押すとすぐ欄に入ります。負の差異は ±、小数は「.」。キーボードの数字キーとEnterでも入力できます。</p></section>`;
+ }
+ function selectNumber(key){numActive=key;numActiveQ=key===null?null:qNow().id;renderDock();}
+ // 選んだ金額欄に印をつけ、キーボードの入力を受けられるようにする（行を消した・答え合わせした欄は選択をやめる）。
+ function markNum(){
+  $$('#answer-area [data-number].active').forEach(e=>e.classList.remove('active'));
+  if(!docking()||numActive===null||!session)return;const el=$(`#answer-area [data-number="${numActive}"]`);
+  if(!el||el.disabled||!numOk(qNow())){numActive=null;numActiveQ=null;renderDock();return;}
+  el.classList.add('active');if(!modal&&document.activeElement!==el&&!document.activeElement?.closest?.('.b-numdock'))el.focus({preventScroll:true});
+ }
+ function numKey(k){
+  if(!session||session.paused)return;const q=qNow();if(!numOk(q))return;
+  const [side,idx]=numActive.split(':'),v=numEdit(numValue(q,numActive),k),a=answerFor(q);
+  if(q.type==='journal')a[side][+idx][1]=v;else a[+numActive]=v;
+  renderAnswer();updateAnswer();const d=$('#number-display');if(d){d.textContent=numShow(v);if(session.kind==='practice')F.bump(d);}
+ }
+ function numNext(){
+  if(!session)return;const q=qNow();if(!numOk(q))return;const v=numValue(q,numActive);
+  if(v!==''&&E.number(v)===null){F.toast('数値を入力してください');return;}
+  const keys=$$('#answer-area [data-number]:not([disabled])').map(e=>e.dataset.number);selectNumber(keys[keys.indexOf(numActive)+1]??null);
+ }
  function numberSheet(key){
   const q=qNow(),a=answerFor(q),[side,idx]=key.split(':'),journal=q.type==='journal';
   let value=String((journal?a[side][+idx][1]:a[+key])??'');const label=journal?(side==='dr'?'借方':'貸方')+'の金額':q.parts[+key].label;
-  openModal(label,`<div class="b-numdisplay" id="number-display">${esc(value?fmt(Number(value)):'0')}</div><div class="b-keypad">${['7','8','9','4','5','6','1','2','3','±','0','000','C','.','⌫'].map(k=>button(k,'num:'+k,['C','⌫','±','.'].includes(k)?'subkey':'')).join('')}</div><div class="b-actions">${button('入力を確定','numberDone','b-primary')}</div><p class="b-mini-note">負の差異は ±、小数は「.」。PCでは数字キーでも入力できます。</p>`);
-  modal.numberKey=k=>{if(k==='C')value='';else if(k==='⌫')value=value.slice(0,-1);else if(k==='±')value=value.startsWith('-')?value.slice(1):'-'+(value||'0');else if(k==='.') {if(!value.includes('.'))value=(value||'0')+'.';}else if(value.replace(/[-.]/g,'').length+k.length<=12)value=(value==='0'?'':value)+k;$('#number-display').textContent=value===''?'0':value==='-'||value.endsWith('.')?value:fmt(Number(value));if(session?.kind==='practice')F.bump($('#number-display'));};
+  openModal(label,`<div class="b-numdisplay" id="number-display">${esc(value?fmt(Number(value)):'0')}</div>${numPad()}<div class="b-actions">${button('入力を確定','numberDone','b-primary')}</div><p class="b-mini-note">負の差異は ±、小数は「.」。PCでは数字キーでも入力できます。</p>`);
+  modal.numberKey=k=>{value=numEdit(value,k);$('#number-display').textContent=numShow(value);if(session?.kind==='practice')F.bump($('#number-display'));};
   modal.numberDone=()=>{if(value!==''&&E.number(value)===null){F.toast('数値を入力してください');return;}if(journal)a[side][+idx][1]=value;else a[+key]=value;closeModal();renderAnswer();updateAnswer();};
  }
- // 電卓。表示と途中の計算は、PCで置いたままの電卓では問題を移っても保つ（スマホ幅のシートは開くたびに0から）。
+ // 電卓（シート。開くたびに0から）。
  const calc={value:'0',stored:null,operator:null,fresh:true};
  const calcPad=()=>`<div class="b-numdisplay" id="calc-display">${esc(calc.value)}</div><div class="b-keypad calc">${['C','±','%','÷','7','8','9','×','4','5','6','−','1','2','3','+','0','00','.','='].map(k=>button(k,'calc:'+k,/^[0-9.]$/.test(k)?'':'subkey')).join('')}</div>`;
  function calcApply(){const n=Number(calc.value);if(calc.stored!==null&&calc.operator){const o=calc.operator,s=calc.stored;calc.value=String(o==='+'?s+n:o==='−'?s-n:o==='×'?s*n:n===0?NaN:s/n);if(!Number.isFinite(Number(calc.value)))calc.value='エラー';else calc.value=String(Number(Number(calc.value).toPrecision(12)));}calc.operator=null;calc.stored=null;}
@@ -334,7 +367,6 @@
   const d=$('#calc-display');if(d)d.textContent=calc.value;
  }
  function calculator(){
-  if(docking()){S.set.calcDock=!S.set.calcDock;save();renderDock();if(S.set.calcDock)$('.b-calcdock')?.focus({preventScroll:true});return;}
   Object.assign(calc,{value:'0',stored:null,operator:null,fresh:true});
   openModal('電卓',`${calcPad()}<p class="b-mini-note">四則演算は入力した順に計算。%は表示値を100で割ります。</p>`);modal.calcKey=calcKey;
  }
@@ -366,7 +398,7 @@
   const [act,...args]=raw.split(':'),arg=args.join(':');
   if(act==='closeModal'){closeModal();return;}
   if(act==='sfx'){F.moment.preview(arg,el);return;}
-  if(act==='accountTab'){modal?.accountTab(arg);return;}if(act==='selectAccount'){modal?.accountChoose(arg);return;}if(act==='num'){modal?.numberKey(arg);return;}if(act==='numberDone'){modal?.numberDone();return;}if(act==='calc'){calcKey(arg);return;}
+  if(act==='accountTab'){modal?.accountTab(arg);return;}if(act==='selectAccount'){modal?.accountChoose(arg);return;}if(act==='num'){if(modal?.numberKey)modal.numberKey(arg);else numKey(arg);return;}if(act==='numberNext'){numNext();return;}if(act==='numberDone'){modal?.numberDone();return;}if(act==='calc'){calcKey(arg);return;}
   if(act==='continue'){closeModal(false);resumeClock();return;}
   if(act==='leaveSession'){closeModal(false);if(session.kind==='exam')persistExam();session=null;go('menu');return;}
   if(act==='home'){if(session){pause();return;}go('menu');return;}
@@ -379,7 +411,7 @@
   if(['drill','theory','weak','mixed'].includes(act)){startPractice(act);return;}
   if(act==='help'){help();return;}
   if(act==='speak'){if(!session)return;if(T?.speaking()||V?.speaking())hush();else readAloud(qNow());return;}if(act==='calculator'){calculator();return;}if(act==='revealAnswer'){revealAnswer();return;}
-  if(act==='closeCalc'){S.set.calcDock=false;save();renderDock();return;}if(act==='closeAnswer'){if(session)openAnswers.delete(qNow().id);renderDock();return;}
+  if(act==='closeAnswer'){if(session)openAnswers.delete(qNow().id);renderDock();return;}
   if(act==='grade'){grade();return;}if(act==='next'){next();return;}
   if(act==='pause'){pause();return;}
   if(act==='replayExam'){try{startExam('random',$('#exam-code').value);}catch(e){$('#exam-code-error').textContent=e.message;}return;}
@@ -421,11 +453,11 @@
   if(fun&&(act==='tf'||act==='choice')){F.play('select',arg==='false'?1:+arg||0);return;}
   if(fun&&['selectAccount','add','remove'].includes(act)){F.play({selectAccount:'pick',add:'add',remove:'remove'}[act]);return;}
   const name=control.matches('[data-number],.memo button')||['num','calc','accountTab'].includes(act)?'tick':
-   ['closeModal','home','categoryUp','pause','leaveSession','prev','closeAnswer','closeCalc'].includes(act)?'back':
+   ['closeModal','home','categoryUp','pause','leaveSession','prev','closeAnswer'].includes(act)?'back':
    ['jump','section','tf','choice','selectAccount'].includes(act)?'move':'ok';
   F.play(name);
  },true);
- document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b&&!b.disabled){F.audioUnlock();action(b.dataset.action,b).catch(err=>{console.error(err);F.toast('操作できませんでした。ホームから再度お試しください');});}const n=e.target.closest('[data-number]');if(n&&!n.disabled&&!session?.paused)numberSheet(n.dataset.number);});
+ document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b&&!b.disabled){F.audioUnlock();action(b.dataset.action,b).catch(err=>{console.error(err);F.toast('操作できませんでした。ホームから再度お試しください');});}const n=e.target.closest('[data-number]');if(n&&!n.disabled&&!session?.paused){if($('#dock .b-numdock'))selectNumber(n.dataset.number);else numberSheet(n.dataset.number);}});
  document.addEventListener('change',e=>{const key=e.target.dataset.setting;if(!key){if(e.target.matches('.memo input[type=range]'))F.play('tick');return;}const target=e.target;S.set[key]=target.type==='checkbox'?(key==='fx'?+target.checked:target.checked):['count','goal','vol','bgm','tts','ttsRate'].includes(key)?+target.value:target.value;save();if(key==='vol')F.setVol();if(key==='tts')V?.setLevel();if(key==='bgm')F.setBgmVol();if(key==='ttsVoice'||key==='ttsRate')T?.speak('この声で問題文を読み上げます。');if(key==='fx')F.applyFx();F.play('tick');if(key==='scope')F.toast(scopeLabel(S.set.scope)+'に変更しました');});
  // やさしい言い換えの開閉は次の問題でも保つ（設定の「開いておく」と共通）。
  document.addEventListener('toggle',e=>{if(e.target.matches?.('.b-easy')&&S.set.easy!==e.target.open){S.set.easy=e.target.open;save();}},true);
@@ -436,8 +468,12 @@
    if(modal.numberKey){if(/^\d$/.test(e.key)||e.key==='.'||e.key==='Backspace'||e.key==='Delete'||e.key==='-'){e.preventDefault();F.play('tick');modal.numberKey(e.key==='Backspace'?'⌫':e.key==='Delete'?'C':e.key==='-'?'±':e.key);}else if(e.key==='Enter'){e.preventDefault();F.play('ok');modal.numberDone();}return;}
    if(modal.calcKey){const map={'Enter':'=','*':'×','/':'÷','-':'−','Backspace':'C'};if(/^[0-9.+%]$/.test(e.key)||map[e.key]){e.preventDefault();F.play('tick');modal.calcKey(map[e.key]||e.key);}return;}
   }else if(e.key==='Escape'&&session){e.preventDefault();F.play('back');pause();}
-  // PCで置いたままの電卓は、電卓を押したあと（電卓の中にフォーカスがあるとき）キーボードでも打てる。
-  else if(e.target.closest?.('.b-calcdock')&&!e.ctrlKey&&!e.metaKey&&!e.altKey){const map={'Enter':'=','*':'×','/':'÷','-':'−','Backspace':'C'};if(/^[0-9.+%]$/.test(e.key)||map[e.key]){e.preventDefault();F.play('tick');calcKey(map[e.key]||e.key);}}
+  // PCで問題の隣に置いたテンキーは、金額欄かテンキーにフォーカスがあるとき、キーボードでも打てる（Enterで次の欄へ）。
+  else if($('#dock .b-numdock')&&(e.target.matches?.('[data-number]')||e.target.closest?.('.b-numdock'))&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+   const k=/^\d$/.test(e.key)||e.key==='.'?e.key:{Backspace:'⌫',Delete:'C','-':'±'}[e.key];
+   if((k||e.key==='Enter')&&e.target.matches('[data-number]')&&!e.target.disabled&&e.target.dataset.number!==numActive)selectNumber(e.target.dataset.number);
+   if(k){e.preventDefault();F.play('tick');numKey(k);}else if(e.key==='Enter'){e.preventDefault();F.play('ok');numNext();}
+  }
   else if(e.target.matches('[data-number]')&&(e.key==='Enter'||/^\d$/.test(e.key))){e.preventDefault();F.play('tick');numberSheet(e.target.dataset.number);if(/^\d$/.test(e.key))modal.numberKey(e.key);}
  });
  document.addEventListener('pointerdown',e=>{document.body.dataset.input=e.pointerType==='touch'||e.pointerType==='pen'?'touch':'kb';F.audioUnlock();});
